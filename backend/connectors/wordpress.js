@@ -20,10 +20,10 @@ async function publicarComPlugin({ wp_url, wp_plugin_key, chapeu, titulo, resumo
     post_format: 'editorial',
   };
 
-  const r = await axios.post(`${base}/wp-json/xmn/v1/publish`, payload, {
+  const r = await axios.post(`${base}/wp-json/cpub/v1/publish`, payload, {
     headers: {
-      'Content-Type':  'application/json',
-      'X-XMNews-Key':  wp_plugin_key,
+      'Content-Type':        'application/json',
+      'X-CampanhaPress-Key': wp_plugin_key,
     },
     timeout: 90000,
   });
