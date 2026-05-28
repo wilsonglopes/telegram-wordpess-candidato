@@ -106,11 +106,11 @@ function iniciarBot(cliente) {
   console.log(`[bot] Bot iniciado: ${cliente.nome}`);
 }
 
-function pararBot(clienteId) {
+async function pararBot(clienteId) {
   const bot = botsAtivos.get(clienteId);
   if (!bot) return;
-  try { bot.stopPolling(); } catch {}
   botsAtivos.delete(clienteId);
+  try { await bot.stopPolling(); } catch {}
 }
 
 // ── PROCESSAMENTO DE MENSAGENS ─────────────────────────────────────────────────
@@ -260,6 +260,21 @@ async function processarCallback(bot, cliente, cbQuery) {
   const data   = cbQuery.data;
   const sessao = getSessao(cliente.id, userId);
 
+  // Para toggles e cancelar: responde imediatamente (operações rápidas)
+  // Para publicar: responde imediatamente e executa em background (evita timeout de 30s)
+  if (data === 'publicar') {
+    await bot.answerCallbackQuery(cbQuery.id, { text: '🚀 Publicando…' });
+    await bot.editMessageText('⏳ Publicando nos canais selecionados…', {
+      chat_id: chatId, message_id: cbQuery.message.message_id,
+    });
+    // Não aguarda — publica em background para não travar o handler do callback
+    publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao).catch(err => {
+      console.error(`[bot:${cliente.slug}] Erro na publicação:`, err.message);
+      bot.sendMessage(chatId, `❌ Erro inesperado: ${err.message}`).catch(() => {});
+    });
+    return;
+  }
+
   await bot.answerCallbackQuery(cbQuery.id);
 
   if (data === 'cancelar') {
@@ -280,13 +295,6 @@ async function processarCallback(bot, cliente, cbQuery) {
       reply_markup: teclado(sessao.canais),
     });
     return;
-  }
-
-  if (data === 'publicar') {
-    await bot.editMessageText('⏳ Publicando…', {
-      chat_id: chatId, message_id: cbQuery.message.message_id,
-    });
-    await publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao);
   }
 }
 
