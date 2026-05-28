@@ -249,6 +249,22 @@
           </div>
         </div>
 
+        <div class="grid2">
+          <div>
+            <label>Formato de imagem no WP</label>
+            <select id="dPostFormat">
+              <option value="editorial">Editorial — imagem dentro do corpo</option>
+              <option value="standard">Standard — só imagem destacada (evita duplicata)</option>
+            </select>
+          </div>
+          <div>
+            <label>Template de caption (redes sociais)</label>
+            <select id="dSocialTemplate">
+              <option value="padrao">Padrão</option>
+            </select>
+          </div>
+        </div>
+
         <label>Prompt personalizado <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(vazio = padrão jornalístico)</span></label>
         <textarea id="dPrompt" placeholder="Ex: Escreva como assessor do candidato X. Tom direto, foco em realizações..." style="min-height:60px"></textarea>
 
@@ -510,11 +526,13 @@ async function abrirDetalhe(id) {
     document.getElementById('dWpUrl').value     = c.wp_url    || '';
     document.getElementById('dWpUsuario').value = c.wp_usuario|| '';
     document.getElementById('dWpSenha').value   = '';
-    document.getElementById('dPluginKey').value = c.wp_plugin_key   || '';
-    document.getElementById('dWpUsuario').value = c.wp_usuario      || '';
-    document.getElementById('dFbPageId').value  = c.fb_page_id      || '';
-    document.getElementById('dFbToken').value   = c.fb_access_token || '';
-    document.getElementById('dIgUserId').value  = c.ig_user_id      || '';
+    document.getElementById('dPluginKey').value     = c.wp_plugin_key    || '';
+    document.getElementById('dWpUsuario').value     = c.wp_usuario       || '';
+    document.getElementById('dPostFormat').value    = c.wp_post_format   || 'editorial';
+    document.getElementById('dSocialTemplate').value= c.social_template  || 'padrao';
+    document.getElementById('dFbPageId').value      = c.fb_page_id       || '';
+    document.getElementById('dFbToken').value       = c.fb_access_token  || '';
+    document.getElementById('dIgUserId').value      = c.ig_user_id       || '';
     toggleDadosWp();
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
@@ -556,10 +574,12 @@ async function salvarDados() {
   const body = {
     nome:               document.getElementById('dNome').value,
     wp_url:             document.getElementById('dWpUrl').value,
-    wp_plugin_key:      document.getElementById('dPluginKey').value || null,
-    wp_usuario:         document.getElementById('dWpUsuario').value || null,
-    telegram_bot_token: document.getElementById('dBotToken').value  || null,
-    ai_prompt:          document.getElementById('dPrompt').value    || null,
+    wp_plugin_key:      document.getElementById('dPluginKey').value      || null,
+    wp_usuario:         document.getElementById('dWpUsuario').value      || null,
+    wp_post_format:     document.getElementById('dPostFormat').value     || 'editorial',
+    social_template:    document.getElementById('dSocialTemplate').value || 'padrao',
+    telegram_bot_token: document.getElementById('dBotToken').value       || null,
+    ai_prompt:          document.getElementById('dPrompt').value         || null,
   };
   const wp_senha = document.getElementById('dWpSenha').value;
   if (wp_senha) body.wp_senha = wp_senha;

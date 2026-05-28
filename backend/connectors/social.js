@@ -1,24 +1,20 @@
 'use strict';
 
 const axios = require('axios');
+const { renderTemplate } = require('../utils/template');
 
 const GRAPH = 'https://graph.facebook.com/v19.0';
 
-function montarCaption({ chapeu, titulo, resumo, postUrl }) {
-  let txt = '';
-  if (chapeu)  txt += `${chapeu.toUpperCase()}\n\n`;
-  txt += `${titulo}\n`;
-  if (resumo)  txt += `\n${resumo}\n`;
-  txt += `\n🔗 ${postUrl}`;
-  return txt;
+function vars(chapeu, titulo, resumo, postUrl, slug) {
+  return { CHAPEU: chapeu, TITULO: titulo, RESUMO: resumo, LINK: postUrl, SLUG_CANDIDATO: slug };
 }
 
 // ── FACEBOOK ──────────────────────────────────────────────────────────────────
 
-async function postarFacebook({ fb_page_id, fb_access_token, chapeu, titulo, resumo, postUrl, imagemUrl }) {
+async function postarFacebook({ fb_page_id, fb_access_token, chapeu, titulo, resumo, postUrl, imagemUrl, slug, template = 'padrao' }) {
   if (!fb_page_id || !fb_access_token) return null;
 
-  const caption = montarCaption({ chapeu, titulo, resumo, postUrl });
+  const caption = renderTemplate('facebook', template, vars(chapeu, titulo, resumo, postUrl, slug));
 
   try {
     const params = {
@@ -51,10 +47,10 @@ async function postarFacebook({ fb_page_id, fb_access_token, chapeu, titulo, res
 
 // ── INSTAGRAM ─────────────────────────────────────────────────────────────────
 
-async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, resumo, postUrl, imagemUrl }) {
+async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, resumo, postUrl, imagemUrl, slug, template = 'padrao' }) {
   if (!ig_user_id || !fb_access_token || !imagemUrl) return null;
 
-  const caption = montarCaption({ chapeu, titulo, resumo, postUrl });
+  const caption = renderTemplate('instagram', template, vars(chapeu, titulo, resumo, postUrl, slug));
 
   try {
     // Passo 1: criar container de mídia
@@ -89,13 +85,15 @@ async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, re
 
 async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, imagemUrl }) {
   const resultados = {};
+  const slug     = cliente.slug || '';
+  const template = cliente.social_template || 'padrao';
 
   if (cliente.fb_page_id && cliente.fb_access_token) {
     try {
       resultados.facebook = await postarFacebook({
-        fb_page_id:       cliente.fb_page_id,
-        fb_access_token:  cliente.fb_access_token,
-        chapeu, titulo, resumo, postUrl, imagemUrl,
+        fb_page_id:      cliente.fb_page_id,
+        fb_access_token: cliente.fb_access_token,
+        chapeu, titulo, resumo, postUrl, imagemUrl, slug, template,
       });
     } catch (err) {
       resultados.facebook_erro = err.message;
@@ -107,7 +105,7 @@ async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, image
       resultados.instagram = await postarInstagram({
         ig_user_id:      cliente.ig_user_id,
         fb_access_token: cliente.fb_access_token,
-        chapeu, titulo, resumo, postUrl, imagemUrl,
+        chapeu, titulo, resumo, postUrl, imagemUrl, slug, template,
       });
     } catch (err) {
       resultados.instagram_erro = err.message;

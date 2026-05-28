@@ -3,6 +3,7 @@
 const axios    = require('axios');
 const { query } = require('../db');
 const settings  = require('../settings.json');
+const { renderTemplate } = require('../utils/template');
 
 const BASE = () => settings.evolution_api_url.replace(/\/$/, '');
 const KEY  = () => settings.evolution_api_key;
@@ -52,14 +53,16 @@ async function listarGrupos(instancia) {
 }
 
 // Envia para todos os grupos ativos — com imagem se disponível, texto simples se não
-async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, imagemUrl }) {
+async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, imagemUrl, chapeu, slug, template }) {
   const { rows: grupos } = await query(
     `SELECT group_jid, nome FROM grupos_whatsapp WHERE cliente_id = $1 AND ativo = true`,
     [clienteId]
   );
   if (grupos.length === 0) return;
 
-  const legenda = `🗞️ *${titulo}*${resumo ? `\n\n${resumo}` : ''}\n\n🔗 ${postUrl}`;
+  const legenda = renderTemplate('whatsapp', template || 'padrao', {
+    CHAPEU: chapeu, TITULO: titulo, RESUMO: resumo, LINK: postUrl, SLUG_CANDIDATO: slug,
+  });
 
   for (const grupo of grupos) {
     try {

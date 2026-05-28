@@ -72,7 +72,7 @@ router.post('/', async (req, res) => {
 // Atualiza cliente
 router.patch('/:id', async (req, res) => {
   try {
-    const campos = ['nome', 'wp_url', 'wp_plugin_key', 'wp_usuario', 'wp_senha', 'telegram_bot_token', 'ai_prompt', 'ativo', 'fb_page_id', 'fb_access_token', 'ig_user_id'];
+    const campos = ['nome', 'wp_url', 'wp_plugin_key', 'wp_usuario', 'wp_senha', 'telegram_bot_token', 'ai_prompt', 'ativo', 'fb_page_id', 'fb_access_token', 'ig_user_id', 'wp_post_format', 'social_template'];
     const updates = [];
     const values  = [];
     let i = 1;

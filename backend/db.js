@@ -69,6 +69,8 @@ async function migrate() {
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fb_page_id        TEXT`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fb_access_token   TEXT`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ig_user_id        TEXT`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS wp_post_format    TEXT NOT NULL DEFAULT 'editorial'`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS social_template   TEXT NOT NULL DEFAULT 'padrao'`);
 
   // Torna wp_usuario e wp_senha nullable (plugin não precisa deles)
   await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);

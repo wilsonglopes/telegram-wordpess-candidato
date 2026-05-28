@@ -7,17 +7,17 @@ const FormData = require('form-data');
  * Publica via Portal Publisher plugin (modo principal).
  * Envia chapéu, resumo, corpo, imagem — o plugin trata tudo no WP.
  */
-async function publicarComPlugin({ wp_url, wp_plugin_key, chapeu, titulo, resumo, corpo, imagemUrl, slug }) {
+async function publicarComPlugin({ wp_url, wp_plugin_key, chapeu, titulo, resumo, corpo, imagemUrl, slug, post_format }) {
   const base = wp_url.replace(/\/$/, '');
 
   const payload = {
-    title:      titulo,
-    chapeu:     chapeu  || '',
-    summary:    resumo  || '',
-    body:       corpo,
-    slug:       slug    || '',
-    image_url:  imagemUrl || '',
-    post_format: 'editorial',
+    title:       titulo,
+    chapeu:      chapeu      || '',
+    summary:     resumo      || '',
+    body:        corpo,
+    slug:        slug        || '',
+    image_url:   imagemUrl   || '',
+    post_format: post_format || 'editorial',
   };
 
   const r = await axios.post(`${base}/wp-json/cpub/v1/publish`, payload, {
@@ -46,6 +46,8 @@ async function publicarComAppPassword({ wp_url, wp_usuario, wp_senha, titulo, co
   const headers = { Authorization: `Basic ${auth}` };
 
   let featured_media;
+  let wpImageUrl = null; // URL pública no WP — usar no FB/IG em vez da URL do Telegram
+
   if (imagemUrl) {
     try {
       const imgResp = await axios.get(imagemUrl, { responseType: 'arraybuffer', timeout: 30000 });
@@ -56,6 +58,7 @@ async function publicarComAppPassword({ wp_url, wp_usuario, wp_senha, titulo, co
         timeout: 60000,
       });
       featured_media = upload.data.id;
+      wpImageUrl = upload.data.source_url || upload.data.link || null;
     } catch (err) {
       console.warn('[wp] Upload de imagem falhou:', err.message);
     }
@@ -72,7 +75,7 @@ async function publicarComAppPassword({ wp_url, wp_usuario, wp_senha, titulo, co
   });
 
   if (!r.data?.link) throw new Error('WordPress não retornou URL do post');
-  return { id: r.data.id, link: r.data.link, imagemUrl: null };
+  return { id: r.data.id, link: r.data.link, imagemUrl: wpImageUrl };
 }
 
 /**

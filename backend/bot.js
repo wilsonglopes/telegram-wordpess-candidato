@@ -297,6 +297,7 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
   // 1. WordPress (sempre)
   let post;
   try {
+    const slug = materia.titulo?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '';
     post = await publicarWP({
       wp_url:        cliente.wp_url,
       wp_plugin_key: cliente.wp_plugin_key || null,
@@ -307,7 +308,8 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
       resumo:        materia.resumo,
       corpo:         materia.corpo,
       imagemUrl,
-      slug: materia.titulo?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '',
+      slug,
+      post_format:   cliente.wp_post_format || 'editorial',
     });
   } catch (err) {
     await query(
@@ -331,10 +333,13 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
       await enviarGrupos({
         instancia: cliente.evolution_instancia,
         clienteId: cliente.id,
+        chapeu:    materia.chapeu,
         titulo:    materia.titulo,
         resumo:    materia.resumo,
         postUrl:   post.link,
         imagemUrl: imagemPostada,
+        slug:      cliente.slug,
+        template:  cliente.social_template || 'padrao',
       });
       publicados.push('📱 WhatsApp');
     } catch (err) { erros.push(`WhatsApp: ${err.message}`); }
