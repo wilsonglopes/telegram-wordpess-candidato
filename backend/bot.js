@@ -311,8 +311,16 @@ async function processarCallback(bot, cliente, cbQuery) {
 }
 
 // ── PUBLICAÇÃO ─────────────────────────────────────────────────────────────────
-async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
+async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao) {
   const { materia, canais, imagemUrl } = sessao;
+
+  // Recarrega o cliente do banco — garante credenciais atualizadas (token FB,
+  // chave do plugin, etc.) em vez do snapshot capturado no startup do bot.
+  let cliente = clienteCache;
+  try {
+    const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [clienteCache.id]);
+    if (rows[0]) cliente = rows[0];
+  } catch {}
 
   // 1. WordPress (sempre)
   let post;
