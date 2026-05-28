@@ -3,24 +3,84 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios       = require('axios');
 const FormData    = require('form-data');
-const { query }   = require('./db');
-const { gerarMateria } = require('./connectors/ai');
-const { publicarWP }   = require('./connectors/wordpress');
-const { enviarGrupos }    = require('./connectors/evolution');
+const { query }         = require('./db');
+const { gerarMateria }  = require('./connectors/ai');
+const { publicarWP }    = require('./connectors/wordpress');
+const { enviarGrupos }  = require('./connectors/evolution');
 const { distribuirRedes } = require('./connectors/social');
 const settings = require('./settings.json');
 
-// Mapa de bots ativos: clienteId → TelegramBot instance
 const botsAtivos = new Map();
 
+// ── SESSÕES ────────────────────────────────────────────────────────────────────
+// Rascunho por assessor enquanto coleta o material antes de gerar
+// chave: `${clienteId}:${telegramUserId}`
+const sessoes = new Map();
+
+function chave(clienteId, userId) { return `${clienteId}:${userId}`; }
+
+function getSessao(clienteId, userId) {
+  const k = chave(clienteId, userId);
+  if (!sessoes.has(k)) {
+    sessoes.set(k, {
+      textos:    [],      // strings acumuladas
+      imagemUrl: null,    // última foto enviada
+      stage:     'collecting', // 'collecting' | 'confirming'
+      materia:   null,    // { chapeu, titulo, resumo, corpo }
+      canais:    { wa: true, fb: true, ig: true },
+      msgId:     null,    // id da mensagem de prévia (para editar)
+    });
+  }
+  return sessoes.get(k);
+}
+
+function limparSessao(clienteId, userId) {
+  sessoes.delete(chave(clienteId, userId));
+}
+
+// ── TECLADO INLINE ─────────────────────────────────────────────────────────────
+function teclado(canais) {
+  return {
+    inline_keyboard: [
+      [
+        { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
+        { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
+        { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
+      ],
+      [
+        { text: '🚀 Publicar agora', callback_data: 'publicar' },
+        { text: '🗑️ Cancelar',       callback_data: 'cancelar' },
+      ],
+    ],
+  };
+}
+
+function textoPrevia(materia, canais) {
+  const chapeu = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
+  const resumo = materia.resumo ? `\n📝 ${materia.resumo}\n` : '';
+  return (
+    `📰 *PRÉVIA DA MATÉRIA*\n\n` +
+    `${chapeu}*${materia.titulo}*${resumo}\n` +
+    `*Publicar em:*\n` +
+    `${canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
+    `${canais.fb ? '✅' : '⬜'} Facebook\n` +
+    `${canais.ig ? '✅' : '⬜'} Instagram\n\n` +
+    `_Ative ou desative os canais e clique em 🚀 Publicar_`
+  );
+}
+
+// ── INICIALIZAÇÃO ──────────────────────────────────────────────────────────────
 async function iniciarBots() {
-  const { rows } = await query(`SELECT * FROM clientes WHERE ativo = true AND telegram_bot_token IS NOT NULL`);
-  for (const cliente of rows) iniciarBot(cliente);
+  const { rows } = await query(
+    `SELECT * FROM clientes WHERE ativo = true AND telegram_bot_token IS NOT NULL`
+  );
+  for (const c of rows) iniciarBot(c);
   console.log(`[bot] ${rows.length} bot(s) iniciados`);
 }
 
 function iniciarBot(cliente) {
   if (botsAtivos.has(cliente.id)) return;
+
   const bot = new TelegramBot(cliente.telegram_bot_token, { polling: true });
   botsAtivos.set(cliente.id, bot);
 
@@ -28,11 +88,21 @@ function iniciarBot(cliente) {
     try { await processarMensagem(bot, cliente, msg); }
     catch (err) {
       console.error(`[bot:${cliente.slug}] Erro:`, err.message);
-      bot.sendMessage(msg.chat.id, `❌ Erro ao processar: ${err.message}`).catch(() => {});
+      bot.sendMessage(msg.chat.id, `❌ Erro: ${err.message}`).catch(() => {});
     }
   });
 
-  bot.on('polling_error', (err) => console.error(`[bot:${cliente.slug}] Polling error:`, err.message));
+  bot.on('callback_query', async (query) => {
+    try { await processarCallback(bot, cliente, query); }
+    catch (err) {
+      console.error(`[bot:${cliente.slug}] Callback erro:`, err.message);
+      bot.answerCallbackQuery(query.id, { text: '❌ Erro ao processar.' });
+    }
+  });
+
+  bot.on('polling_error', (err) =>
+    console.error(`[bot:${cliente.slug}] Polling error:`, err.message)
+  );
   console.log(`[bot] Bot iniciado: ${cliente.nome}`);
 }
 
@@ -43,32 +113,39 @@ function pararBot(clienteId) {
   botsAtivos.delete(clienteId);
 }
 
+// ── PROCESSAMENTO DE MENSAGENS ─────────────────────────────────────────────────
 async function processarMensagem(bot, cliente, msg) {
-  const telegramUserId = msg.from?.id;
+  const userId = msg.from?.id;
   const chatId = msg.chat.id;
 
   // Verifica autorização
   const { rows } = await query(
     `SELECT id FROM assessores WHERE cliente_id = $1 AND telegram_user_id = $2 AND ativo = true`,
-    [cliente.id, telegramUserId]
+    [cliente.id, userId]
   );
   if (rows.length === 0) {
     return bot.sendMessage(chatId, '⛔ Você não está autorizado. Fale com o administrador.');
   }
 
   const texto = msg.text || msg.caption || '';
+  const sessao = getSessao(cliente.id, userId);
 
-  // ── COMANDOS ──────────────────────────────────────────────────────────────
+  // ── COMANDOS ────────────────────────────────────────────────────
   if (texto === '/start' || texto === '/ajuda') {
     return bot.sendMessage(chatId,
       `👋 *Bot de assessoria — ${cliente.nome}*\n\n` +
-      `📝 Envie *texto* descrevendo o evento\n` +
-      `📸 Envie *foto com legenda* para incluir imagem\n` +
-      `🎤 Envie *áudio de voz* (transcrição automática)\n\n` +
+      `*Como usar:*\n` +
+      `1️⃣ Envie textos, fotos e/ou áudios com o material\n` +
+      `2️⃣ Digite /gerar quando terminar\n` +
+      `3️⃣ Revise a prévia e escolha os canais\n` +
+      `4️⃣ Clique em 🚀 Publicar\n\n` +
       `*Comandos:*\n` +
-      `/status — Status da conexão\n` +
-      `/grupos — Grupos de distribuição ativos\n` +
-      `/ajuda — Esta mensagem`,
+      `/gerar — gera a matéria com o material enviado\n` +
+      `/rascunho — vê o que foi acumulado\n` +
+      `/limpar — descarta o rascunho atual\n` +
+      `/status — status da conexão\n` +
+      `/grupos — grupos de WhatsApp ativos\n` +
+      `/ajuda — esta mensagem`,
       { parse_mode: 'Markdown' }
     );
   }
@@ -76,56 +153,149 @@ async function processarMensagem(bot, cliente, msg) {
   if (texto === '/status') return cmdStatus(bot, cliente, chatId);
   if (texto === '/grupos') return cmdGrupos(bot, cliente, chatId);
 
-  // ── ÁUDIO (Whisper) ───────────────────────────────────────────────────────
-  if (msg.voice || msg.audio) {
-    if (!settings.openai_api_key) {
-      return bot.sendMessage(chatId, '🎤 Transcrição de áudio não está configurada. Envie o texto digitado.');
-    }
-    await bot.sendMessage(chatId, '🎤 Transcrevendo áudio…');
-    const fileId   = (msg.voice || msg.audio).file_id;
-    const fileInfo = await bot.getFile(fileId);
-    const audioUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
-
-    const audioResp = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 30000 });
-    const form = new FormData();
-    form.append('file', Buffer.from(audioResp.data), { filename: 'audio.ogg', contentType: 'audio/ogg' });
-    form.append('model', 'whisper-1');
-    form.append('language', 'pt');
-
-    const whisper = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
-      headers: { Authorization: `Bearer ${settings.openai_api_key}`, ...form.getHeaders() },
-      timeout: 60000,
-    });
-
-    const transcricao = whisper.data?.text;
-    if (!transcricao) return bot.sendMessage(chatId, '❌ Não foi possível transcrever o áudio. Tente enviar o texto.');
-
-    await bot.sendMessage(chatId, `🎤 *Transcrição:*\n${transcricao}`, { parse_mode: 'Markdown' });
-    return processarConteudo(bot, cliente, chatId, transcricao, null);
+  if (texto === '/limpar') {
+    limparSessao(cliente.id, userId);
+    return bot.sendMessage(chatId, '🗑️ Rascunho descartado. Pode começar de novo.');
   }
 
-  // ── CONTEÚDO NORMAL ───────────────────────────────────────────────────────
-  let imagemUrl = null;
+  if (texto === '/rascunho') {
+    if (!sessao.textos.length && !sessao.imagemUrl) {
+      return bot.sendMessage(chatId, '📋 Rascunho vazio. Envie textos ou fotos para começar.');
+    }
+    const resumo =
+      `📋 *Rascunho atual:*\n\n` +
+      (sessao.imagemUrl ? `📸 1 foto anexada\n` : '') +
+      (sessao.textos.length ? `📝 ${sessao.textos.length} texto(s):\n${sessao.textos.map((t,i) => `${i+1}. ${t.slice(0,80)}…`).join('\n')}` : '');
+    return bot.sendMessage(chatId, resumo, { parse_mode: 'Markdown' });
+  }
+
+  if (texto === '/gerar') {
+    return gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao);
+  }
+
+  // ── ÁUDIO (Whisper) ────────────────────────────────────────────
+  if (msg.voice || msg.audio) {
+    if (!settings.openai_api_key) {
+      return bot.sendMessage(chatId, '🎤 Transcrição não configurada. Envie o texto digitado.');
+    }
+    const transcrevendo = await bot.sendMessage(chatId, '🎤 Transcrevendo áudio…');
+    try {
+      const fileId   = (msg.voice || msg.audio).file_id;
+      const fileInfo = await bot.getFile(fileId);
+      const audioUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
+      const audioResp = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 30000 });
+      const form = new FormData();
+      form.append('file', Buffer.from(audioResp.data), { filename: 'audio.ogg', contentType: 'audio/ogg' });
+      form.append('model', 'whisper-1');
+      form.append('language', 'pt');
+      const whisper = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
+        headers: { Authorization: `Bearer ${settings.openai_api_key}`, ...form.getHeaders() },
+        timeout: 60000,
+      });
+      const transcricao = whisper.data?.text;
+      if (!transcricao) return bot.editMessageText('❌ Não foi possível transcrever.', { chat_id: chatId, message_id: transcrevendo.message_id });
+      sessao.textos.push(transcricao);
+      return bot.editMessageText(
+        `🎤 *Transcrição adicionada ao rascunho:*\n_${transcricao}_\n\nEnvie mais material ou /gerar para criar a matéria.`,
+        { chat_id: chatId, message_id: transcrevendo.message_id, parse_mode: 'Markdown' }
+      );
+    } catch (err) {
+      return bot.editMessageText(`❌ Erro na transcrição: ${err.message}`, { chat_id: chatId, message_id: transcrevendo.message_id });
+    }
+  }
+
+  // ── FOTO ────────────────────────────────────────────────────────
   if (msg.photo) {
     const fileId   = msg.photo[msg.photo.length - 1].file_id;
     const fileInfo = await bot.getFile(fileId);
-    imagemUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
+    sessao.imagemUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
+    if (texto) sessao.textos.push(texto);
+    return bot.sendMessage(chatId,
+      `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.\nEnvie mais material ou /gerar para criar a matéria.`
+    );
   }
 
-  if (!texto && !imagemUrl) {
-    return bot.sendMessage(chatId, '📝 Envie texto, foto com legenda ou áudio descrevendo o evento.\nDigite /ajuda para ver os comandos.');
+  // ── TEXTO ───────────────────────────────────────────────────────
+  if (texto && !texto.startsWith('/')) {
+    sessao.textos.push(texto);
+    return bot.sendMessage(chatId,
+      `📝 Texto adicionado ao rascunho (${sessao.textos.length} texto(s) acumulado(s)).\nEnvie mais ou /gerar para criar a matéria.`
+    );
   }
 
-  return processarConteudo(bot, cliente, chatId, texto, imagemUrl);
+  // Mensagem não reconhecida
+  return bot.sendMessage(chatId,
+    '📋 Envie textos, fotos ou áudios para acumular o material.\nDigite /gerar quando quiser criar a matéria.\nUse /ajuda para ver todos os comandos.'
+  );
 }
 
-async function processarConteudo(bot, cliente, chatId, texto, imagemUrl) {
-  await bot.sendMessage(chatId, '⏳ Gerando matéria…');
+// ── GERAÇÃO DA MATÉRIA ─────────────────────────────────────────────────────────
+async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
+  if (!sessao.textos.length && !sessao.imagemUrl) {
+    return bot.sendMessage(chatId,
+      '⚠️ Rascunho vazio! Envie textos, fotos ou áudios antes de /gerar.'
+    );
+  }
 
-  const materia = await gerarMateria({ texto, prompt: cliente.ai_prompt });
+  sessao.stage = 'confirming';
+  const gerando = await bot.sendMessage(chatId, '⏳ Gerando matéria com IA…');
 
+  const textoCompleto = sessao.textos.join('\n\n');
+  const materia = await gerarMateria({ texto: textoCompleto, prompt: cliente.ai_prompt });
+  sessao.materia = materia;
+
+  await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
+
+  const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
+    parse_mode:   'Markdown',
+    reply_markup: teclado(sessao.canais),
+  });
+  sessao.msgId = preview.message_id;
+}
+
+// ── CALLBACKS DOS BOTÕES INLINE ────────────────────────────────────────────────
+async function processarCallback(bot, cliente, cbQuery) {
+  const userId = cbQuery.from.id;
+  const chatId = cbQuery.message.chat.id;
+  const data   = cbQuery.data;
+  const sessao = getSessao(cliente.id, userId);
+
+  await bot.answerCallbackQuery(cbQuery.id);
+
+  if (data === 'cancelar') {
+    limparSessao(cliente.id, userId);
+    await bot.editMessageText('🗑️ Publicação cancelada. Rascunho descartado.', {
+      chat_id: chatId, message_id: cbQuery.message.message_id,
+    });
+    return;
+  }
+
+  if (data.startsWith('toggle_')) {
+    const canal = data.replace('toggle_', '');
+    sessao.canais[canal] = !sessao.canais[canal];
+    await bot.editMessageText(textoPrevia(sessao.materia, sessao.canais), {
+      chat_id:      chatId,
+      message_id:   cbQuery.message.message_id,
+      parse_mode:   'Markdown',
+      reply_markup: teclado(sessao.canais),
+    });
+    return;
+  }
+
+  if (data === 'publicar') {
+    await bot.editMessageText('⏳ Publicando…', {
+      chat_id: chatId, message_id: cbQuery.message.message_id,
+    });
+    await publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao);
+  }
+}
+
+// ── PUBLICAÇÃO ─────────────────────────────────────────────────────────────────
+async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
+  const { materia, canais, imagemUrl } = sessao;
+
+  // 1. WordPress (sempre)
   let post;
-  let erroWP = null;
   try {
     post = await publicarWP({
       wp_url:        cliente.wp_url,
@@ -137,77 +307,93 @@ async function processarConteudo(bot, cliente, chatId, texto, imagemUrl) {
       resumo:        materia.resumo,
       corpo:         materia.corpo,
       imagemUrl,
-      slug:          materia.titulo?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '',
+      slug: materia.titulo?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '',
     });
   } catch (err) {
-    erroWP = err.message;
-    // Salva com status de erro para reprocessamento futuro
     await query(
       `INSERT INTO publicacoes (cliente_id, titulo, status) VALUES ($1, $2, 'erro_wp')`,
       [cliente.id, materia.titulo]
     ).catch(() => {});
+    limparSessao(cliente.id, userId);
     return bot.sendMessage(chatId,
-      `⚠️ Matéria gerada mas falhou ao publicar no WordPress.\n\n*Erro:* ${erroWP}\n\n*Título gerado:* ${materia.titulo}`,
+      `⚠️ Falha ao publicar no WordPress.\n\n*Erro:* ${err.message}`,
       { parse_mode: 'Markdown' }
     );
   }
 
-  const imagemPostada = post.imagemUrl || null;
+  const imagemPostada = post.imagemUrl || imagemUrl || null;
+  const publicados = ['✅ WordPress'];
+  const erros = [];
 
-  // WhatsApp — imagem + resumo + link
-  await enviarGrupos({
-    instancia: cliente.evolution_instancia,
-    clienteId: cliente.id,
-    titulo:    materia.titulo,
-    resumo:    materia.resumo,
-    postUrl:   post.link,
-    imagemUrl: imagemPostada,
-  });
+  // 2. WhatsApp
+  if (canais.wa) {
+    try {
+      await enviarGrupos({
+        instancia: cliente.evolution_instancia,
+        clienteId: cliente.id,
+        titulo:    materia.titulo,
+        resumo:    materia.resumo,
+        postUrl:   post.link,
+        imagemUrl: imagemPostada,
+      });
+      publicados.push('📱 WhatsApp');
+    } catch (err) { erros.push(`WhatsApp: ${err.message}`); }
+  }
 
-  // Facebook + Instagram
-  const social = await distribuirRedes(cliente, {
-    chapeu:    materia.chapeu,
-    titulo:    materia.titulo,
-    resumo:    materia.resumo,
-    postUrl:   post.link,
-    imagemUrl: imagemPostada,
-  });
+  // 3. Facebook + Instagram
+  if (canais.fb || canais.ig) {
+    const clienteAtualizado = { ...cliente };
+    if (!canais.fb) clienteAtualizado.fb_page_id = null;
+    if (!canais.ig) clienteAtualizado.ig_user_id = null;
 
+    const social = await distribuirRedes(clienteAtualizado, {
+      chapeu:    materia.chapeu,
+      titulo:    materia.titulo,
+      resumo:    materia.resumo,
+      postUrl:   post.link,
+      imagemUrl: imagemPostada,
+    });
+    if (social.facebook)       publicados.push('📘 Facebook');
+    if (social.instagram)      publicados.push('📸 Instagram');
+    if (social.facebook_erro)  erros.push(`Facebook: ${social.facebook_erro}`);
+    if (social.instagram_erro) erros.push(`Instagram: ${social.instagram_erro}`);
+  }
+
+  // 4. Registra
   await query(
     `INSERT INTO publicacoes (cliente_id, titulo, wp_post_url, status) VALUES ($1, $2, $3, 'publicado')`,
     [cliente.id, materia.titulo, post.link]
   );
 
-  if (social.facebook_erro)  console.warn(`[bot:${cliente.slug}] FB erro: ${social.facebook_erro}`);
-  if (social.instagram_erro) console.warn(`[bot:${cliente.slug}] IG erro: ${social.instagram_erro}`);
+  limparSessao(cliente.id, userId);
 
   const chapeuTexto = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
-  const canais = ['✅ WordPress', '📱 WhatsApp'];
-  if (social.facebook)  canais.push('📘 Facebook');
-  if (social.instagram) canais.push('📸 Instagram');
+  const erroTexto = erros.length ? `\n\n⚠️ _Erros:_\n${erros.map(e => `• ${e}`).join('\n')}` : '';
 
   await bot.sendMessage(chatId,
-    `✅ *Publicado em ${canais.length} canal(is)!*\n\n${chapeuTexto}📰 *${materia.titulo}*\n\n🔗 ${post.link}\n\n_${canais.join(' · ')}_`,
+    `✅ *Publicado em ${publicados.length} canal(is)!*\n\n` +
+    `${chapeuTexto}📰 *${materia.titulo}*\n\n` +
+    `🔗 ${post.link}\n\n` +
+    `_${publicados.join(' · ')}_${erroTexto}`,
     { parse_mode: 'Markdown' }
   );
 }
 
-// ── COMANDOS INTERNOS ─────────────────────────────────────────────────────────
+// ── COMANDOS INTERNOS ──────────────────────────────────────────────────────────
 async function cmdStatus(bot, cliente, chatId) {
   const { rows: pubs } = await query(
     `SELECT titulo, wp_post_url, criado_em FROM publicacoes WHERE cliente_id = $1 ORDER BY criado_em DESC LIMIT 3`,
     [cliente.id]
   );
   const { rows: [c] } = await query(`SELECT whatsapp_status FROM clientes WHERE id = $1`, [cliente.id]);
-  const waStatus = c?.whatsapp_status || 'desconhecido';
-  const waIcon   = waStatus === 'conectado' ? '🟢' : waStatus === 'pendente' ? '🟡' : '🔴';
+  const wa = c?.whatsapp_status || 'desconhecido';
+  const waIcon = wa === 'conectado' ? '🟢' : wa === 'pendente' ? '🟡' : '🔴';
 
-  let msg = `📊 *Status — ${cliente.nome}*\n\n${waIcon} WhatsApp: ${waStatus}\n\n`;
+  let msg = `📊 *Status — ${cliente.nome}*\n\n${waIcon} WhatsApp: ${wa}\n\n`;
   if (pubs.length) {
     msg += `📰 *Últimas publicações:*\n`;
     pubs.forEach(p => {
-      const data = new Date(p.criado_em).toLocaleDateString('pt-BR');
-      msg += `• ${p.titulo || 'Sem título'} (${data})\n`;
+      msg += `• ${p.titulo || 'Sem título'} (${new Date(p.criado_em).toLocaleDateString('pt-BR')})\n`;
       if (p.wp_post_url) msg += `  🔗 ${p.wp_post_url}\n`;
     });
   } else {
@@ -222,22 +408,20 @@ async function cmdGrupos(bot, cliente, chatId) {
     [cliente.id]
   );
   if (!rows.length) {
-    return bot.sendMessage(chatId, '📱 Nenhum grupo cadastrado ainda.\nConfigure os grupos no painel admin.');
+    return bot.sendMessage(chatId, '📱 Nenhum grupo cadastrado.\nConfigure os grupos no painel admin.');
   }
   const ativos   = rows.filter(g => g.ativo);
   const inativos = rows.filter(g => !g.ativo);
-  let msg = `📱 *Grupos de distribuição — ${cliente.nome}*\n\n`;
+  let msg = `📱 *Grupos — ${cliente.nome}*\n\n`;
   if (ativos.length)   msg += `✅ *Ativos (${ativos.length}):*\n` + ativos.map(g => `• ${g.nome}`).join('\n') + '\n\n';
-  if (inativos.length) msg += `⏸️ *Pausados (${inativos.length}):*\n` + inativos.map(g => `• ${g.nome}`).join('\n');
+  if (inativos.length) msg += `⏸️ *Pausados:*\n` + inativos.map(g => `• ${g.nome}`).join('\n');
   bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
 }
 
-// ── RELATÓRIO SEMANAL ─────────────────────────────────────────────────────────
-// Chamado a cada hora pelo server.js; dispara apenas segunda-feira às 8h
+// ── RELATÓRIO SEMANAL ──────────────────────────────────────────────────────────
 async function verificarRelatorioSemanal() {
   const agora = new Date();
   if (agora.getDay() !== 1 || agora.getHours() !== 8) return;
-
   try {
     const { rows: clientes } = await query(`
       SELECT c.id, c.nome,
@@ -246,30 +430,24 @@ async function verificarRelatorioSemanal() {
             AND p.criado_em > NOW() - INTERVAL '7 days') AS total_semana
       FROM clientes c WHERE c.ativo = true AND c.telegram_bot_token IS NOT NULL
     `);
-
     for (const cliente of clientes) {
       const bot = botsAtivos.get(cliente.id);
       if (!bot) continue;
-
       const { rows: assessores } = await query(
         `SELECT telegram_user_id FROM assessores WHERE cliente_id = $1 AND ativo = true`,
         [cliente.id]
       );
       if (!assessores.length) continue;
-
       const total = parseInt(cliente.total_semana) || 0;
       const msg =
         `📊 *Relatório Semanal — ${cliente.nome}*\n\n` +
         `📰 *${total}* matéria${total !== 1 ? 's' : ''} publicada${total !== 1 ? 's' : ''} nos últimos 7 dias.\n\n` +
         `_Relatório automático — toda segunda-feira às 8h._`;
-
       for (const a of assessores) {
         bot.sendMessage(a.telegram_user_id, msg, { parse_mode: 'Markdown' }).catch(() => {});
       }
     }
-  } catch (err) {
-    console.error('[relatorio] Erro:', err.message);
-  }
+  } catch (err) { console.error('[relatorio] Erro:', err.message); }
 }
 
 module.exports = { iniciarBots, iniciarBot, pararBot, verificarRelatorioSemanal };
