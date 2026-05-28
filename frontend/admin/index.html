@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel — Plataforma Candidatos</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .login-box { background: #1e293b; border-radius: 12px; padding: 40px; width: 360px; }
+    .login-box h1 { font-size: 1.4rem; margin-bottom: 8px; }
+    .login-box p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; }
+    input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 1rem; margin-bottom: 16px; }
+    button { width: 100%; padding: 12px; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 1rem; cursor: pointer; border: none; }
+    button:hover { background: #2563eb; }
+    .erro { color: #f87171; font-size: 0.85rem; margin-top: 8px; }
+    /* Dashboard */
+    .app { display: none; }
+    header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; }
+    .btn-sm { padding: 8px 16px; border-radius: 8px; background: #3b82f6; color: #fff; border: none; cursor: pointer; font-size: 0.9rem; }
+    .btn-sm:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; }
+    .btn-danger:hover { background: #dc2626; }
+    main { padding: 24px; max-width: 1000px; margin: 0 auto; }
+    .card { background: #1e293b; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; color: #94a3b8; font-size: 0.8rem; padding: 8px 12px; border-bottom: 1px solid #334155; }
+    td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
+    tr:hover td { background: #0f172a; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge.conectado { background: #14532d; color: #86efac; }
+    .badge.pendente   { background: #713f12; color: #fde68a; }
+    .badge.desconectado { background: #450a0a; color: #fca5a5; }
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 100; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: #1e293b; border-radius: 12px; padding: 28px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal h2 { margin-bottom: 20px; }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; margin-top: 14px; }
+    textarea { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 0.9rem; min-height: 80px; resize: vertical; }
+    .modal-footer { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+    .link-qr { color: #60a5fa; text-decoration: none; font-size: 0.85rem; }
+    .link-qr:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <h1>Painel Admin</h1>
+    <p>Plataforma Candidatos — acesso restrito</p>
+    <input type="password" id="senhaInput" placeholder="Senha" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">Entrar</button>
+    <div class="erro" id="loginErro"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <header>
+    <h1>📋 Plataforma Candidatos</h1>
+    <div style="display:flex;gap:10px">
+      <button class="btn-sm" onclick="abrirModalNovo()">+ Novo Candidato</button>
+      <button class="btn-sm btn-danger" onclick="logout()">Sair</button>
+    </div>
+  </header>
+  <main>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Candidato</th>
+            <th>WordPress</th>
+            <th>WhatsApp</th>
+            <th>Link QR</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaClientes"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL NOVO/EDITAR -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitulo">Novo Candidato</h2>
+    <input type="hidden" id="clienteId">
+    <label>Nome do candidato *</label>
+    <input type="text" id="fNome" placeholder="Ex: Zé Milton">
+    <label>Slug (identificador único) *</label>
+    <input type="text" id="fSlug" placeholder="Ex: ze-milton">
+    <label>URL do WordPress *</label>
+    <input type="url" id="fWpUrl" placeholder="https://siteducandidato.com.br">
+    <label>Usuário WordPress *</label>
+    <input type="text" id="fWpUsuario" placeholder="admin">
+    <label>Senha de Aplicativo WordPress *</label>
+    <input type="text" id="fWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
+    <label>Token do Bot Telegram</label>
+    <input type="text" id="fBotToken" placeholder="1234567890:AABBcc...">
+    <label>Prompt personalizado (estilo de redação)</label>
+    <textarea id="fPrompt" placeholder="Ex: Escreva como assessor de imprensa político. Tom formal e objetivo..."></textarea>
+    <div class="modal-footer">
+      <button class="btn-sm" style="background:#475569" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-sm" onclick="salvarCliente()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let TOKEN = localStorage.getItem('admin_token') || '';
+
+async function apiFetch(path, opts = {}) {
+  const r = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN, ...(opts.headers || {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.erro || r.statusText); }
+  return r.json();
+}
+
+async function login() {
+  const senha = document.getElementById('senhaInput').value;
+  try {
+    const { token } = await apiFetch('/auth/login', { method: 'POST', body: { senha } });
+    TOKEN = token;
+    localStorage.setItem('admin_token', token);
+    mostrarApp();
+  } catch { document.getElementById('loginErro').textContent = 'Senha incorreta'; }
+}
+
+function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.reload(); }
+
+function mostrarApp() {
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  carregarClientes();
+}
+
+async function carregarClientes() {
+  try {
+    const clientes = await apiFetch('/clientes');
+    const tbody = document.getElementById('tabelaClientes');
+    tbody.innerHTML = clientes.map(c => `
+      <tr>
+        <td><strong>${c.nome}</strong></td>
+        <td><a href="${c.wp_url}" target="_blank" style="color:#60a5fa">${c.wp_url.replace('https://','')}</a></td>
+        <td><span class="badge ${c.whatsapp_status}">${c.whatsapp_status}</span></td>
+        <td><a class="link-qr" href="/conectar/${c.token_qr || ''}" target="_blank">Link QR ↗</a></td>
+        <td><button class="btn-sm" onclick="editarCliente(${c.id})">Editar</button></td>
+      </tr>
+    `).join('');
+  } catch (err) { console.error(err); }
+}
+
+function abrirModalNovo() {
+  document.getElementById('modalTitulo').textContent = 'Novo Candidato';
+  document.getElementById('clienteId').value = '';
+  ['fNome','fSlug','fWpUrl','fWpUsuario','fWpSenha','fBotToken','fPrompt'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fSlug').disabled = false;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+async function editarCliente(id) {
+  const c = await apiFetch(`/clientes/${id}`);
+  document.getElementById('modalTitulo').textContent = 'Editar Candidato';
+  document.getElementById('clienteId').value = c.id;
+  document.getElementById('fNome').value = c.nome || '';
+  document.getElementById('fSlug').value = c.slug || '';
+  document.getElementById('fSlug').disabled = true;
+  document.getElementById('fWpUrl').value = c.wp_url || '';
+  document.getElementById('fWpUsuario').value = c.wp_usuario || '';
+  document.getElementById('fWpSenha').value = '';
+  document.getElementById('fBotToken').value = c.telegram_bot_token || '';
+  document.getElementById('fPrompt').value = c.ai_prompt || '';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function fecharModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+async function salvarCliente() {
+  const id = document.getElementById('clienteId').value;
+  const body = {
+    nome:               document.getElementById('fNome').value,
+    slug:               document.getElementById('fSlug').value,
+    wp_url:             document.getElementById('fWpUrl').value,
+    wp_usuario:         document.getElementById('fWpUsuario').value,
+    wp_senha:           document.getElementById('fWpSenha').value,
+    telegram_bot_token: document.getElementById('fBotToken').value || undefined,
+    ai_prompt:          document.getElementById('fPrompt').value || undefined,
+  };
+  try {
+    if (id) {
+      if (!body.wp_senha) delete body.wp_senha;
+      await apiFetch(`/clientes/${id}`, { method: 'PATCH', body });
+    } else {
+      await apiFetch('/clientes', { method: 'POST', body });
+    }
+    fecharModal();
+    carregarClientes();
+  } catch (err) { alert('Erro: ' + err.message); }
+}
+
+// Auto-login se token salvo
+if (TOKEN) { try { mostrarApp(); } catch { TOKEN = ''; } }
+</script>
+</body>
+</html>

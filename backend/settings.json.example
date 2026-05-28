@@ -1,0 +1,12 @@
+{
+  "jwt_secret": "troque-por-string-aleatoria-longa",
+  "admin_password": "troque-pela-senha-do-painel",
+  "evolution_api_url": "http://localhost:8080",
+  "evolution_api_key": "sua-api-key-da-evolution",
+  "openai_api_key": "",
+  "deepseek_api_key": "",
+  "ai_provider": "deepseek",
+  "db_connection_string": "postgresql://usuario:senha@localhost:5432/candidatos",
+  "port": 3003,
+  "base_url": "https://candidatos.xmnews.com.br"
+}
