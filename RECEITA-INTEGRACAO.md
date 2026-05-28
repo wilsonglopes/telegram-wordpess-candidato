@@ -319,3 +319,185 @@ postarFacebook({ imagemUrl: imagemPublica }); // funciona
 ```
 
 O WordPress baixa a imagem do Telegram, faz upload para sua própria mídia e retorna uma URL pública no próprio servidor. Essa URL é que deve ser usada no Facebook e Instagram.
+
+---
+
+## TEMPLATES — Texto que aparece no Facebook, Instagram e WhatsApp
+
+### O que é e para que serve
+
+O "caption" é o texto que acompanha a foto no Facebook e Instagram, e a mensagem enviada nos grupos de WhatsApp. Cada rede tem um formato diferente — o WhatsApp aceita markdown com `*negrito*`, o Instagram tem limite de 2200 caracteres, o Facebook é mais longo.
+
+Ao invés de montar esse texto hardcoded no código, este projeto usa **arquivos de template** — um arquivo de texto por rede social, com variáveis que são substituídas na hora de postar.
+
+---
+
+### Onde ficam os templates
+
+```
+backend/
+  templates/
+    facebook/
+      padrao.txt       ← template padrão do Facebook
+    instagram/
+      padrao.txt       ← template padrão do Instagram
+    whatsapp/
+      padrao.txt       ← template padrão do WhatsApp
+```
+
+Cada rede tem sua própria pasta. O arquivo `padrao.txt` é o template usado por padrão. Você pode criar outros arquivos na mesma pasta (ex: `politica.txt`, `saude.txt`) e escolher qual usar por candidato ou por tipo de matéria.
+
+---
+
+### Variáveis disponíveis nos templates
+
+Dentro de qualquer arquivo `.txt`, use `{{NOME_DA_VARIAVEL}}` para inserir dados da matéria:
+
+| Variável | O que é | Exemplo |
+|---|---|---|
+| `{{CHAPEU}}` | Editoria/seção da matéria | `SEGURANÇA PÚBLICA` |
+| `{{TITULO}}` | Título da matéria | `Prefeito inaugura nova UBS` |
+| `{{RESUMO}}` | Lead/resumo gerado pela IA | `A unidade vai atender 5 mil famílias...` |
+| `{{LINK}}` | URL do post no WordPress | `https://site.com.br/materia` |
+| `{{SLUG_CANDIDATO}}` | Identificador do candidato | `ze-milton` |
+
+**Regra importante:** se uma variável estiver vazia (ex: matéria sem chapéu), a linha inteira é removida automaticamente — não fica linha em branco sobrando.
+
+---
+
+### Conteúdo dos templates neste projeto
+
+**`backend/templates/facebook/padrao.txt`**
+```
+{{CHAPEU}}
+
+{{TITULO}}
+
+{{RESUMO}}
+
+🔗 Leia a matéria completa:
+{{LINK}}
+```
+
+**`backend/templates/instagram/padrao.txt`**
+```
+{{CHAPEU}}
+
+{{TITULO}}
+
+{{RESUMO}}
+
+🔗 {{LINK}}
+```
+
+**`backend/templates/whatsapp/padrao.txt`**
+```
+🗞️ *{{CHAPEU}}*
+
+*{{TITULO}}*
+
+{{RESUMO}}
+
+🔗 {{LINK}}
+```
+
+---
+
+### Como o código usa os templates
+
+O utilitário `backend/utils/template.js` faz o trabalho:
+
+```javascript
+const { renderTemplate } = require('../utils/template');
+
+// Monta o texto para Facebook
+const captionFacebook = renderTemplate('facebook', 'padrao', {
+  CHAPEU:  'SEGURANÇA PÚBLICA',
+  TITULO:  'Prefeito inaugura nova UBS',
+  RESUMO:  'A unidade vai atender 5 mil famílias...',
+  LINK:    'https://site.com.br/materia',
+});
+
+// Monta o texto para Instagram
+const captionInstagram = renderTemplate('instagram', 'padrao', {
+  CHAPEU:  'SEGURANÇA PÚBLICA',
+  TITULO:  'Prefeito inaugura nova UBS',
+  RESUMO:  'A unidade vai atender 5 mil famílias...',
+  LINK:    'https://site.com.br/materia',
+});
+```
+
+Resultado do Facebook:
+```
+SEGURANÇA PÚBLICA
+
+Prefeito inaugura nova UBS
+
+A unidade vai atender 5 mil famílias...
+
+🔗 Leia a matéria completa:
+https://site.com.br/materia
+```
+
+---
+
+### Como o `template.js` funciona por dentro
+
+```javascript
+function renderTemplate(rede, nome = 'padrao', vars = {}) {
+  // Lê o arquivo: backend/templates/{rede}/{nome}.txt
+  const arquivo = path.join(__dirname, '../templates', rede, `${nome}.txt`);
+  let texto = fs.readFileSync(arquivo, 'utf-8');
+
+  for (const [chave, valor] of Object.entries(vars)) {
+    if (!valor) {
+      // Variável vazia → remove a linha inteira (sem deixar linha em branco)
+      texto = texto.replace(new RegExp(`^.*\\{\\{${chave}\\}\\}.*$\n?`, 'gm'), '');
+    } else {
+      // Substitui a variável pelo valor
+      texto = texto.replace(new RegExp(`\\{\\{${chave}\\}\\}`, 'g'), valor);
+    }
+  }
+
+  // Remove linhas em branco duplas que sobram
+  return texto.replace(/\n{3,}/g, '\n\n').trim();
+}
+```
+
+---
+
+### Como personalizar para um candidato específico
+
+Se um candidato quiser um template diferente (ex: com hashtags próprias), basta criar um arquivo novo na pasta da rede:
+
+```
+backend/templates/instagram/ze-milton.txt
+```
+
+Conteúdo:
+```
+{{CHAPEU}}
+
+{{TITULO}}
+
+{{RESUMO}}
+
+🔗 {{LINK}}
+
+#zemilton #{{SLUG_CANDIDATO}} #politica
+```
+
+E no código, passar o nome do template ao chamar:
+```javascript
+renderTemplate('instagram', 'ze-milton', vars);
+```
+
+---
+
+### Como adicionar um novo canal no futuro
+
+1. Crie a pasta: `backend/templates/novocanal/`
+2. Crie o arquivo: `backend/templates/novocanal/padrao.txt`
+3. No conector do novo canal, importe e use `renderTemplate('novocanal', 'padrao', vars)`
+
+Nenhuma alteração no `template.js` é necessária — ele funciona para qualquer pasta/rede automaticamente.

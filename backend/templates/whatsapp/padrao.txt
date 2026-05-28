@@ -1,0 +1,7 @@
+🗞️ *{{CHAPEU}}*
+
+*{{TITULO}}*
+
+{{RESUMO}}
+
+🔗 {{LINK}}

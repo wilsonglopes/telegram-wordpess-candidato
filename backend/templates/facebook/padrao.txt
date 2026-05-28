@@ -1,0 +1,8 @@
+{{CHAPEU}}
+
+{{TITULO}}
+
+{{RESUMO}}
+
+🔗 Leia a matéria completa:
+{{LINK}}
