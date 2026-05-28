@@ -35,17 +35,20 @@ router.get('/:id', async (req, res) => {
 // Cria novo cliente
 router.post('/', async (req, res) => {
   try {
-    const { nome, slug, wp_url, wp_usuario, wp_senha, telegram_bot_token, ai_prompt } = req.body;
-    if (!nome || !slug || !wp_url || !wp_usuario || !wp_senha) {
-      return res.status(400).json({ erro: 'Campos obrigatórios: nome, slug, wp_url, wp_usuario, wp_senha' });
+    const { nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, telegram_bot_token, ai_prompt } = req.body;
+    if (!nome || !slug || !wp_url) {
+      return res.status(400).json({ erro: 'Campos obrigatórios: nome, slug, wp_url' });
+    }
+    if (!wp_plugin_key && (!wp_usuario || !wp_senha)) {
+      return res.status(400).json({ erro: 'Informe wp_plugin_key (plugin) ou wp_usuario + wp_senha (Application Password)' });
     }
 
     const instancia = `candidato-${slug}`;
 
     const { rows } = await query(
-      `INSERT INTO clientes (nome, slug, wp_url, wp_usuario, wp_senha, evolution_instancia, telegram_bot_token, ai_prompt)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [nome, slug, wp_url, wp_usuario, wp_senha, instancia, telegram_bot_token || null, ai_prompt || null]
+      `INSERT INTO clientes (nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, evolution_instancia, telegram_bot_token, ai_prompt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [nome, slug, wp_url, wp_plugin_key || null, wp_usuario || null, wp_senha || null, instancia, telegram_bot_token || null, ai_prompt || null]
     );
 
     // Cria instância na Evolution API
@@ -69,7 +72,7 @@ router.post('/', async (req, res) => {
 // Atualiza cliente
 router.patch('/:id', async (req, res) => {
   try {
-    const campos = ['nome', 'wp_url', 'wp_usuario', 'wp_senha', 'telegram_bot_token', 'ai_prompt', 'ativo'];
+    const campos = ['nome', 'wp_url', 'wp_plugin_key', 'wp_usuario', 'wp_senha', 'telegram_bot_token', 'ai_prompt', 'ativo'];
     const updates = [];
     const values  = [];
     let i = 1;

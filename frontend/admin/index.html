@@ -208,7 +208,9 @@
             <input type="text" id="dWpUsuario">
           </div>
         </div>
-        <label>Senha de Aplicativo WordPress (deixe vazio para não alterar)</label>
+        <label>🔑 Chave do Plugin Portal Publisher <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado — habilita chapéu e resumo)</span></label>
+        <input type="text" id="dPluginKey" placeholder="Cole aqui a chave gerada pelo plugin no WP">
+        <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(fallback — deixe vazio se usar o plugin)</span></label>
         <input type="text" id="dWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
         <label>Token do Bot Telegram</label>
         <input type="text" id="dBotToken" placeholder="1234567890:AABBcc...">
@@ -301,7 +303,9 @@
           <input type="text" id="nWpUsuario" placeholder="admin">
         </div>
       </div>
-      <label>Senha de Aplicativo WordPress *</label>
+      <label>🔑 Chave do Plugin Portal Publisher <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado)</span></label>
+      <input type="text" id="nPluginKey" placeholder="Cole aqui a chave do plugin instalado no WP do candidato">
+      <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(obrigatória se não usar o plugin)</span></label>
       <input type="text" id="nWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
       <label>Token do Bot Telegram</label>
       <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois">
@@ -421,8 +425,9 @@ async function abrirDetalhe(id) {
     document.getElementById('dWpUrl').value     = c.wp_url    || '';
     document.getElementById('dWpUsuario').value = c.wp_usuario|| '';
     document.getElementById('dWpSenha').value   = '';
+    document.getElementById('dPluginKey').value = c.wp_plugin_key      || '';
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
-    document.getElementById('dPrompt').value    = c.ai_prompt || '';
+    document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
     const base = window.location.origin;
     const link = c.token_qr ? `${base}/conectar/${c.token_qr}` : '—';
@@ -460,9 +465,10 @@ async function salvarDados() {
   const body = {
     nome:               document.getElementById('dNome').value,
     wp_url:             document.getElementById('dWpUrl').value,
-    wp_usuario:         document.getElementById('dWpUsuario').value,
-    telegram_bot_token: document.getElementById('dBotToken').value || null,
-    ai_prompt:          document.getElementById('dPrompt').value   || null,
+    wp_plugin_key:      document.getElementById('dPluginKey').value || null,
+    wp_usuario:         document.getElementById('dWpUsuario').value || null,
+    telegram_bot_token: document.getElementById('dBotToken').value  || null,
+    ai_prompt:          document.getElementById('dPrompt').value    || null,
   };
   const wp_senha = document.getElementById('dWpSenha').value;
   if (wp_senha) body.wp_senha = wp_senha;
@@ -675,13 +681,16 @@ async function criarCandidato() {
     nome:               document.getElementById('nNome').value.trim(),
     slug:               document.getElementById('nSlug').value.trim(),
     wp_url:             document.getElementById('nWpUrl').value.trim(),
-    wp_usuario:         document.getElementById('nWpUsuario').value.trim(),
-    wp_senha:           document.getElementById('nWpSenha').value.trim(),
-    telegram_bot_token: document.getElementById('nBotToken').value.trim() || undefined,
-    ai_prompt:          document.getElementById('nPrompt').value.trim()   || undefined,
+    wp_plugin_key:      document.getElementById('nPluginKey').value.trim() || undefined,
+    wp_usuario:         document.getElementById('nWpUsuario').value.trim() || undefined,
+    wp_senha:           document.getElementById('nWpSenha').value.trim()   || undefined,
+    telegram_bot_token: document.getElementById('nBotToken').value.trim()  || undefined,
+    ai_prompt:          document.getElementById('nPrompt').value.trim()    || undefined,
   };
-  if (!body.nome || !body.slug || !body.wp_url || !body.wp_usuario || !body.wp_senha)
-    return toast('Preencha todos os campos obrigatórios (*)', true);
+  if (!body.nome || !body.slug || !body.wp_url)
+    return toast('Preencha: nome, slug e URL do WordPress', true);
+  if (!body.wp_plugin_key && (!body.wp_usuario || !body.wp_senha))
+    return toast('Informe a chave do plugin OU usuário + senha do WordPress', true);
   try {
     const r = await api('/clientes', { method: 'POST', body });
     fecharNovo();

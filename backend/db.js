@@ -65,6 +65,15 @@ async function migrate() {
     )
   `);
 
+  // Adiciona wp_plugin_key se ainda não existir (idempotente)
+  await query(`
+    ALTER TABLE clientes ADD COLUMN IF NOT EXISTS wp_plugin_key TEXT
+  `);
+
+  // Torna wp_usuario e wp_senha nullable (plugin não precisa deles)
+  await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);
+  await query(`ALTER TABLE clientes ALTER COLUMN wp_senha   DROP NOT NULL`);
+
   console.log('[db] Migrations OK');
 }
 

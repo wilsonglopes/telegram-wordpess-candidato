@@ -127,12 +127,16 @@ async function processarConteudo(bot, cliente, chatId, texto, imagemUrl) {
   let erroWP = null;
   try {
     post = await publicarWP({
-      wp_url:     cliente.wp_url,
-      wp_usuario: cliente.wp_usuario,
-      wp_senha:   cliente.wp_senha,
-      titulo:     materia.titulo,
-      corpo:      materia.corpo,
+      wp_url:        cliente.wp_url,
+      wp_plugin_key: cliente.wp_plugin_key || null,
+      wp_usuario:    cliente.wp_usuario,
+      wp_senha:      cliente.wp_senha,
+      chapeu:        materia.chapeu,
+      titulo:        materia.titulo,
+      resumo:        materia.resumo,
+      corpo:         materia.corpo,
       imagemUrl,
+      slug:          materia.titulo?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || '',
     });
   } catch (err) {
     erroWP = err.message;
@@ -154,8 +158,9 @@ async function processarConteudo(bot, cliente, chatId, texto, imagemUrl) {
     [cliente.id, materia.titulo, post.link]
   );
 
+  const chapeuTexto = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
   await bot.sendMessage(chatId,
-    `✅ *Publicado!*\n\n📰 *${materia.titulo}*\n\n🔗 ${post.link}`,
+    `✅ *Publicado!*\n\n${chapeuTexto}📰 *${materia.titulo}*\n\n🔗 ${post.link}`,
     { parse_mode: 'Markdown' }
   );
 }
