@@ -88,6 +88,25 @@
 
     /* ── TABLE CONTAINER ── */
     .table-wrap { overflow-x: auto; }
+
+    /* ── DRAWER COMPACTO ── */
+    .drawer { max-height: 88vh; }
+    .tab-pane { padding: var(--sp-4) var(--sp-5) !important; }
+    .drawer-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: var(--sp-4);
+      padding-top: var(--sp-4);
+      border-top: 1px solid var(--c-border);
+    }
+    /* inputs compactos dentro do drawer */
+    .tab-pane input, .tab-pane textarea, .tab-pane select {
+      margin-bottom: var(--sp-2);
+    }
+    .tab-pane label { margin-top: var(--sp-2); }
+    .tab-pane .section-title { margin: var(--sp-3) 0 var(--sp-2); }
+    .tab-pane .grid2 { gap: 0 var(--sp-4); }
   </style>
 </head>
 <body>
@@ -173,13 +192,13 @@
     <div class="drawer-head">
       <div>
         <h2 id="drawerTitulo">Candidato</h2>
-        <div id="drawerSubtitulo" style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:3px"></div>
+        <div id="drawerSubtitulo" style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:2px"></div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">✕ Fechar</button>
     </div>
-    <div class="tabs" id="tabsBar">
+    <div class="tabs">
       <button class="tab-btn active" onclick="trocarTab('dados')">⚙️ Dados</button>
-      <button class="tab-btn" onclick="trocarTab('redes')">📣 Redes Sociais</button>
+      <button class="tab-btn" onclick="trocarTab('redes')">📣 Redes</button>
       <button class="tab-btn" onclick="trocarTab('assessores')">👥 Assessores</button>
       <button class="tab-btn" onclick="trocarTab('whatsapp')">📱 WhatsApp</button>
       <button class="tab-btn" onclick="trocarTab('publicacoes')">📰 Publicações</button>
@@ -195,67 +214,80 @@
             <input type="text" id="dNome">
           </div>
           <div>
-            <label>Slug (somente leitura)</label>
+            <label>Slug</label>
             <input type="text" id="dSlug" disabled>
           </div>
         </div>
+        <label>URL do WordPress *</label>
+        <input type="url" id="dWpUrl" placeholder="https://siteducandidato.com.br">
+
+        <label>🔑 Chave CampanhaPress <span style="color:var(--c-success);font-size:var(--text-xs)">(plugin no WP Admin → CampanhaPress)</span></label>
+        <input type="text" id="dPluginKey" placeholder="Cole a chave gerada pelo plugin" oninput="toggleDadosWp()">
+
+        <div id="dWpFallback" style="display:none">
+          <div style="background:var(--c-warning-bg);border-radius:var(--r-md);padding:8px 12px;margin-bottom:var(--sp-2);font-size:var(--text-xs);color:#fde68a">
+            ⚠️ Sem o plugin o chapéu e a imagem nas redes não funcionam.
+          </div>
+          <div class="grid2">
+            <div><label>Usuário WP</label><input type="text" id="dWpUsuario" placeholder="admin"></div>
+            <div><label>Senha de Aplicativo WP</label><input type="text" id="dWpSenha" placeholder="xxxx xxxx xxxx xxxx"></div>
+          </div>
+        </div>
+
         <div class="grid2">
           <div>
-            <label>URL do WordPress *</label>
-            <input type="url" id="dWpUrl">
+            <label>Token Bot Telegram</label>
+            <input type="text" id="dBotToken" placeholder="123456:AABBcc...">
           </div>
           <div>
-            <label>Usuário WordPress *</label>
-            <input type="text" id="dWpUsuario">
+            <label>Link QR WhatsApp</label>
+            <div class="qr-link-box" style="margin-top:4px">
+              <code id="dQrLink" style="font-size:10px">—</code>
+              <button class="btn btn-ghost btn-sm" onclick="copiarLink()">📋</button>
+              <a id="dQrLinkHref" href="#" target="_blank" class="btn btn-ghost btn-sm">↗</a>
+            </div>
           </div>
         </div>
-        <label>🔑 Chave do Plugin CampanhaPress <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado — habilita chapéu, resumo e imagem nas redes)</span></label>
-        <input type="text" id="dPluginKey" placeholder="Cole aqui a chave gerada no WP Admin → CampanhaPress">
-        <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(fallback — apenas se não usar o plugin)</span></label>
-        <input type="text" id="dWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
-        <label>Token do Bot Telegram</label>
-        <input type="text" id="dBotToken" placeholder="1234567890:AABBcc...">
-        <label>Prompt personalizado de redação</label>
-        <textarea id="dPrompt" placeholder="Deixe vazio para usar o prompt padrão…"></textarea>
-        <label>Link de conexão WhatsApp</label>
-        <div class="qr-link-box">
-          <code id="dQrLink">—</code>
-          <button class="btn btn-ghost btn-sm" onclick="copiarLink()">Copiar</button>
-          <a id="dQrLinkHref" href="#" target="_blank" class="btn btn-ghost btn-sm">Abrir ↗</a>
-        </div>
-        <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-5);justify-content:space-between;flex-wrap:wrap">
+
+        <label>Prompt personalizado <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(vazio = padrão jornalístico)</span></label>
+        <textarea id="dPrompt" placeholder="Ex: Escreva como assessor do candidato X. Tom direto, foco em realizações..." style="min-height:60px"></textarea>
+
+        <div class="drawer-footer">
           <button class="btn btn-sm" id="btnAtivoToggle" onclick="toggleAtivo()"></button>
-          <div style="display:flex;gap:var(--sp-3)">
+          <div style="display:flex;gap:var(--sp-2)">
             <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">Cancelar</button>
-            <button class="btn btn-primary btn-sm" onclick="salvarDados()">Salvar alterações</button>
+            <button class="btn btn-primary btn-sm" onclick="salvarDados()">Salvar</button>
           </div>
         </div>
       </div>
 
       <!-- ABA: REDES SOCIAIS -->
       <div class="tab-pane" id="tab-redes">
-        <div class="section-title">Facebook</div>
-        <div class="list-item" style="flex-direction:column;align-items:stretch;gap:0">
-          <label>ID da Página</label>
-          <input type="text" id="dFbPageId" placeholder="Ex: 123456789012345">
-          <label>Token de Acesso da Página (Page Access Token)</label>
-          <input type="text" id="dFbToken" placeholder="EAABsb...">
-          <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-8px">
-            Obtenha em <strong>developers.facebook.com</strong> → seu app → Graph API Explorer → gere token para a página com permissões <code>pages_manage_posts</code> e <code>pages_read_engagement</code>.
-          </p>
+        <div class="section-title" style="margin-top:0">Facebook</div>
+        <div class="grid2">
+          <div>
+            <label>ID da Página</label>
+            <input type="text" id="dFbPageId" placeholder="Ex: 123456789012345">
+          </div>
+          <div>
+            <label>Page Access Token</label>
+            <input type="text" id="dFbToken" placeholder="EAABsb...">
+          </div>
         </div>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-4px;margin-bottom:var(--sp-4)">
+          Obtenha em developers.facebook.com → Graph API Explorer → permissões <code>pages_manage_posts</code> + <code>instagram_content_publish</code>
+        </p>
 
-        <div class="section-title" style="margin-top:var(--sp-5)">Instagram</div>
-        <div class="list-item" style="flex-direction:column;align-items:stretch;gap:0">
-          <label>ID da Conta Instagram Business</label>
-          <input type="text" id="dIgUserId" placeholder="Ex: 987654321012345">
-          <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-8px">
-            Obtenha em Graph API Explorer: <code>GET /{page-id}?fields=instagram_business_account</code>. O Instagram deve estar conectado à página do Facebook.
-          </p>
-        </div>
+        <div class="section-title">Instagram Business</div>
+        <label>ID da Conta Instagram</label>
+        <input type="text" id="dIgUserId" placeholder="Ex: 987654321012345">
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-4px">
+          No Graph API Explorer: <code>GET /{page-id}?fields=instagram_business_account</code>
+        </p>
 
-        <div style="display:flex;justify-content:flex-end;margin-top:var(--sp-5)">
-          <button class="btn btn-primary btn-sm" onclick="salvarRedes()">Salvar configurações</button>
+        <div class="drawer-footer">
+          <div></div>
+          <button class="btn btn-primary btn-sm" onclick="salvarRedes()">Salvar</button>
         </div>
       </div>
 
@@ -264,12 +296,12 @@
         <div id="listaAssessores"><div class="empty-state">Carregando…</div></div>
         <div class="section-title">Adicionar assessor</div>
         <div class="add-row">
-          <input type="number" id="aTelegramId" placeholder="Telegram User ID (ex: 123456789)" style="flex:2">
-          <input type="text"   id="aNome"       placeholder="Nome (opcional)" style="flex:1">
+          <input type="number" id="aTelegramId" placeholder="Telegram User ID" style="flex:2">
+          <input type="text" id="aNome" placeholder="Nome (opcional)" style="flex:1">
           <button class="btn btn-primary btn-sm" onclick="adicionarAssessor()">+ Adicionar</button>
         </div>
         <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:var(--sp-2)">
-          Para obter o ID: o assessor deve enviar uma mensagem para @userinfobot no Telegram.
+          O assessor obtém seu ID enviando uma mensagem para @userinfobot no Telegram.
         </p>
       </div>
 
@@ -280,16 +312,12 @@
             <div class="label">Status da conexão</div>
             <div id="waStatusBadge" style="margin-top:var(--sp-1)"><span class="badge pendente">pendente</span></div>
           </div>
-          <div style="margin-left:auto;display:flex;gap:var(--sp-3)">
-            <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()" id="btnRefreshWA">⟳ Atualizar</button>
-          </div>
+          <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()">⟳ Atualizar</button>
         </div>
         <div class="section-title">Grupos ativos</div>
-        <div id="listaGrupos"><div class="empty-state">Carregando…</div></div>
+        <div id="listaGrupos"><div class="empty-state">Nenhum grupo salvo. Sincronize e adicione abaixo.</div></div>
         <div class="section-title">Grupos disponíveis na instância</div>
-        <div style="display:flex;gap:var(--sp-3);margin-bottom:var(--sp-3)">
-          <button class="btn btn-ghost btn-sm" onclick="sincronizarGrupos()" id="btnSyncGrupos">⟳ Sincronizar com WhatsApp</button>
-        </div>
+        <button class="btn btn-ghost btn-sm" id="btnSyncGrupos" onclick="sincronizarGrupos()" style="margin-bottom:var(--sp-3)">⟳ Sincronizar com WhatsApp</button>
         <div id="gruposDisponiveis" style="color:var(--c-text-faint);font-size:var(--text-sm)">
           Clique em Sincronizar para buscar os grupos da instância conectada.
         </div>
@@ -297,8 +325,9 @@
 
       <!-- ABA: PUBLICAÇÕES -->
       <div class="tab-pane" id="tab-publicacoes">
-        <div id="listaPublicacoes"><div class="empty-state">Carregando…</div></div>
+        <div id="listaPublicacoes"><div class="empty-state">Nenhuma publicação ainda. Envie uma mensagem pelo bot Telegram para começar.</div></div>
       </div>
+
     </div>
   </div>
 </div>
@@ -481,10 +510,12 @@ async function abrirDetalhe(id) {
     document.getElementById('dWpUrl').value     = c.wp_url    || '';
     document.getElementById('dWpUsuario').value = c.wp_usuario|| '';
     document.getElementById('dWpSenha').value   = '';
-    document.getElementById('dPluginKey').value = c.wp_plugin_key      || '';
-    document.getElementById('dFbPageId').value  = c.fb_page_id         || '';
-    document.getElementById('dFbToken').value   = c.fb_access_token    || '';
-    document.getElementById('dIgUserId').value  = c.ig_user_id         || '';
+    document.getElementById('dPluginKey').value = c.wp_plugin_key   || '';
+    document.getElementById('dWpUsuario').value = c.wp_usuario      || '';
+    document.getElementById('dFbPageId').value  = c.fb_page_id      || '';
+    document.getElementById('dFbToken').value   = c.fb_access_token || '';
+    document.getElementById('dIgUserId').value  = c.ig_user_id      || '';
+    toggleDadosWp();
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
@@ -563,6 +594,10 @@ function copiarLink() {
 function toggleWpCredenciais() {
   const temPlugin = document.getElementById('nPluginKey').value.trim().length > 0;
   document.getElementById('nWpCredBox').style.display = temPlugin ? 'none' : 'block';
+}
+function toggleDadosWp() {
+  const temPlugin = document.getElementById('dPluginKey').value.trim().length > 0;
+  document.getElementById('dWpFallback').style.display = temPlugin ? 'none' : 'block';
 }
 
 // ─── REDES SOCIAIS ───────────────────────────────────────────
