@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plataforma Candidatos — Assessoria política que não dorme</title>
+  <meta name="description" content="Bot Telegram, IA redatora, WordPress automático e distribuição no WhatsApp para campanhas políticas. Um painel, múltiplos candidatos.">
+  <link rel="stylesheet" href="/design-system.css">
+  <style>
+    /* ── LANDING VARS ─────────────────────────────── */
+    :root {
+      --nav-h: 68px;
+      --section-pad: 96px;
+    }
+
+    /* ── NAV ──────────────────────────────────────── */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      z-index: 90;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(24px, 5vw, 80px);
+      transition: background var(--t-med), box-shadow var(--t-med);
+    }
+    .nav.scrolled {
+      background: rgba(15,23,42,.92);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 1px 0 rgba(255,255,255,.06);
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: var(--text-lg);
+      text-decoration: none;
+      color: var(--c-text);
+    }
+    .nav-logo .logo-icon {
+      width: 34px; height: 34px;
+      background: var(--c-primary);
+      border-radius: var(--r-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(37,99,235,.5);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-8);
+    }
+    .nav-link {
+      font-size: var(--text-sm);
+      color: var(--c-text-muted);
+      text-decoration: none;
+      transition: color var(--t);
+    }
+    .nav-link:hover { color: var(--c-text); }
+    @media (max-width: 640px) {
+      .nav-links .nav-link { display: none; }
+    }
+
+    /* ── HERO ─────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      background: var(--c-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: calc(var(--nav-h) + 60px) clamp(24px, 5vw, 80px) var(--sp-24);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37,99,235,.22) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(37,99,235,.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      mask-image: radial-gradient(ellipse at 50% 40%, black 20%, transparent 80%);
+    }
+    .hero-content { position: relative; z-index: 1; max-width: 800px; }
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 6px 16px;
+      border-radius: var(--r-full);
+      background: rgba(37,99,235,.12);
+      border: 1px solid rgba(37,99,235,.3);
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: #93c5fd;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: var(--sp-6);
+    }
+    .hero-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; animation: pulse-dot 2s ease-in-out infinite; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: .5; transform: scale(.8); }
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, var(--text-6xl));
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -.02em;
+      margin-bottom: var(--sp-6);
+    }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, #60a5fa 0%, #2563eb 50%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, var(--text-xl));
+      color: var(--c-text-muted);
+      line-height: 1.7;
+      margin-bottom: var(--sp-10);
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .hero-actions {
+      display: flex;
+      gap: var(--sp-4);
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: var(--sp-16);
+    }
+    .hero-scroll {
+      position: absolute;
+      bottom: var(--sp-10);
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-2);
+      color: var(--c-text-faint);
+      font-size: var(--text-xs);
+    }
+    .hero-scroll-bar {
+      width: 2px; height: 40px;
+      background: linear-gradient(to bottom, var(--c-primary), transparent);
+      border-radius: var(--r-full);
+      animation: scroll-bar 2s ease-in-out infinite;
+    }
+    @keyframes scroll-bar {
+      0%, 100% { opacity: .3; transform: scaleY(1); }
+      50%       { opacity: 1; transform: scaleY(.6); }
+    }
+
+    /* ── STATS STRIP ──────────────────────────────── */
+    .stats-strip {
+      background: var(--c-bg-card);
+      border-top: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      padding: var(--sp-10) clamp(24px, 5vw, 80px);
+    }
+    .stats-grid {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-6);
+    }
+    .stat-item { text-align: center; }
+    .stat-item .num {
+      font-size: var(--text-4xl);
+      font-weight: 800;
+      background: linear-gradient(135deg, #60a5fa, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: var(--sp-2);
+    }
+    .stat-item .desc {
+      font-size: var(--text-sm);
+      color: var(--c-text-muted);
+      line-height: 1.4;
+    }
+    @media (max-width: 640px) {
+      .stats-grid { grid-template-columns: 1fr; gap: var(--sp-8); }
+    }
+
+    /* ── SEÇÕES GENÉRICAS ─────────────────────────── */
+    .section {
+      padding: var(--section-pad) clamp(24px, 5vw, 80px);
+    }
+    .section.dark  { background: var(--c-bg); }
+    .section.light { background: var(--c-gray-50); }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--c-primary);
+      margin-bottom: var(--sp-4);
+    }
+    .section-label.dark { color: #60a5fa; }
+    .section-title-lg {
+      font-size: clamp(1.75rem, 4vw, var(--text-4xl));
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      margin-bottom: var(--sp-5);
+    }
+    .section-title-lg.dark { color: var(--c-text); }
+    .section-title-lg.light { color: var(--c-gray-900); }
+    .section-desc {
+      font-size: var(--text-lg);
+      line-height: 1.7;
+      max-width: 520px;
+    }
+    .section-desc.dark  { color: var(--c-text-muted); }
+    .section-desc.light { color: #475569; }
+
+    /* ── FADE-IN ANIMATION ────────────────────────── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+    .fade-up:nth-child(2) { transition-delay: .1s; }
+    .fade-up:nth-child(3) { transition-delay: .2s; }
+    .fade-up:nth-child(4) { transition-delay: .3s; }
+
+    /* ── PROBLEMA ─────────────────────────────────── */
+    .problema-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-8);
+      margin-top: var(--sp-12);
+    }
+    @media (max-width: 768px) { .problema-grid { grid-template-columns: 1fr; } }
+    .problema-col {
+      padding: var(--sp-8);
+      border-radius: var(--r-xl);
+    }
+    .problema-col.before {
+      background: #1e1e2e;
+      border: 1px solid rgba(239,68,68,.15);
+    }
+    .problema-col.after {
+      background: #0d1f0d;
+      border: 1px solid rgba(22,163,74,.2);
+    }
+    .problema-col h3 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      margin-bottom: var(--sp-6);
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+    }
+    .problema-col.before h3 { color: #fca5a5; }
+    .problema-col.after  h3 { color: #86efac; }
+    .problema-item {
+      display: flex;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-4);
+      font-size: var(--text-sm);
+      line-height: 1.5;
+      align-items: flex-start;
+    }
+    .problema-item .icon { flex-shrink: 0; font-size: 1rem; margin-top: 1px; }
+    .problema-col.before .problema-item { color: #94a3b8; }
+    .problema-col.after  .problema-item { color: #a7f3d0; }
+
+    /* ── COMO FUNCIONA ────────────────────────────── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--sp-8);
+      margin-top: var(--sp-12);
+      position: relative;
+    }
+    @media (max-width: 768px) { .steps-grid { grid-template-columns: 1fr; } }
+    .steps-grid::before {
+      content: '';
+      position: absolute;
+      top: 28px;
+      left: calc(16.66% + 20px);
+      right: calc(16.66% + 20px);
+      height: 1px;
+      background: linear-gradient(90deg, var(--c-primary), transparent 50%, var(--c-primary));
+      opacity: .3;
+    }
+    @media (max-width: 768px) { .steps-grid::before { display: none; } }
+    .step {
+      text-align: center;
+      padding: var(--sp-6);
+    }
+    .step-num {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--c-bg-card);
+      border: 2px solid var(--c-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-xl);
+      font-weight: 800;
+      color: #60a5fa;
+      margin: 0 auto var(--sp-5);
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 0 20px rgba(37,99,235,.3);
+    }
+    .step h3 {
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--c-text);
+      margin-bottom: var(--sp-3);
+    }
+    .step p { font-size: var(--text-sm); color: var(--c-text-muted); line-height: 1.6; }
+
+    /* ── FEATURES ─────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: var(--sp-6);
+      margin-top: var(--sp-12);
+    }
+    .feature-card {
+      background: var(--c-white);
+      border-radius: var(--r-xl);
+      padding: var(--sp-8);
+      border: 1px solid var(--c-gray-200);
+      transition: transform var(--t-med), box-shadow var(--t-med), border-color var(--t-med);
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,.1);
+      border-color: #bfdbfe;
+    }
+    .feature-icon {
+      width: 48px; height: 48px;
+      border-radius: var(--r-md);
+      background: #eff6ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: var(--sp-5);
+    }
+    .feature-card h3 { font-size: var(--text-base); font-weight: 700; color: var(--c-gray-900); margin-bottom: var(--sp-2); }
+    .feature-card p  { font-size: var(--text-sm); color: #64748b; line-height: 1.6; }
+
+    /* ── PARA QUEM ────────────────────────────────── */
+    .para-quem-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-8);
+      margin-top: var(--sp-12);
+    }
+    @media (max-width: 768px) { .para-quem-grid { grid-template-columns: 1fr; } }
+    .persona-card {
+      border-radius: var(--r-xl);
+      padding: var(--sp-10);
+      position: relative;
+      overflow: hidden;
+    }
+    .persona-card.assessor {
+      background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+      border: 1px solid rgba(147,197,253,.15);
+    }
+    .persona-card.candidato {
+      background: linear-gradient(135deg, #14532d 0%, #1e293b 100%);
+      border: 1px solid rgba(134,239,172,.15);
+    }
+    .persona-tag {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: var(--r-full);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: var(--sp-5);
+    }
+    .persona-card.assessor .persona-tag { background: rgba(37,99,235,.2); color: #93c5fd; }
+    .persona-card.candidato .persona-tag { background: rgba(22,163,74,.2); color: #86efac; }
+    .persona-card h3 {
+      font-size: var(--text-2xl);
+      font-weight: 800;
+      color: var(--c-text);
+      margin-bottom: var(--sp-3);
+    }
+    .persona-card .tagline {
+      font-size: var(--text-base);
+      color: var(--c-text-muted);
+      margin-bottom: var(--sp-8);
+      line-height: 1.6;
+    }
+    .persona-list { list-style: none; }
+    .persona-list li {
+      display: flex;
+      gap: var(--sp-3);
+      font-size: var(--text-sm);
+      color: #cbd5e1;
+      margin-bottom: var(--sp-4);
+      align-items: flex-start;
+    }
+    .persona-list li::before {
+      content: '✓';
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .persona-card.assessor  .persona-list li::before { color: #60a5fa; }
+    .persona-card.candidato .persona-list li::before { color: #86efac; }
+
+    /* ── CTA FINAL ────────────────────────────────── */
+    .cta-final {
+      padding: var(--section-pad) clamp(24px, 5vw, 80px);
+      background: var(--c-bg);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-final::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 70% 80% at 50% 50%, rgba(37,99,235,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-final-inner { position: relative; max-width: 640px; margin: 0 auto; }
+    .cta-final h2 {
+      font-size: clamp(2rem, 5vw, var(--text-5xl));
+      font-weight: 800;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      margin-bottom: var(--sp-5);
+    }
+    .cta-final p {
+      font-size: var(--text-lg);
+      color: var(--c-text-muted);
+      margin-bottom: var(--sp-10);
+      line-height: 1.6;
+    }
+
+    /* ── FOOTER ───────────────────────────────────── */
+    .footer {
+      background: var(--c-bg-card);
+      border-top: 1px solid rgba(255,255,255,.06);
+      padding: var(--sp-10) clamp(24px, 5vw, 80px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--sp-4);
+    }
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: var(--text-sm);
+      color: var(--c-text-muted);
+      text-decoration: none;
+    }
+    .footer-logo .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--c-primary);
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+    .footer-links {
+      display: flex;
+      gap: var(--sp-6);
+    }
+    .footer-links a {
+      font-size: var(--text-sm);
+      color: var(--c-text-faint);
+      text-decoration: none;
+      transition: color var(--t);
+    }
+    .footer-links a:hover { color: var(--c-text-muted); }
+    .footer-copy {
+      font-size: var(--text-xs);
+      color: var(--c-text-faint);
+    }
+    @media (max-width: 640px) {
+      .footer { flex-direction: column; align-items: flex-start; }
+      .footer-links { display: none; }
+    }
+  </style>
+</head>
+<body style="background:var(--c-bg)">
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <a href="/" class="nav-logo">
+    <span class="logo-icon">📋</span>
+    Plataforma Candidatos
+  </a>
+  <div class="nav-links">
+    <a href="#como-funciona" class="nav-link">Como funciona</a>
+    <a href="#features"      class="nav-link">Funcionalidades</a>
+    <a href="#para-quem"     class="nav-link">Para quem</a>
+    <!-- Substitua o número pelo seu WhatsApp -->
+    <a href="https://wa.me/5511999999999?text=Oi%2C+quero+conhecer+a+Plataforma+Candidatos" target="_blank" class="btn btn-wa btn-sm">
+      💬 Falar no WhatsApp
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-content">
+    <div class="hero-pill">
+      <span class="dot"></span>
+      Assessoria de imprensa política automatizada
+    </div>
+    <h1>
+      Assessoria política<br>
+      <span class="accent">que não dorme.</span>
+    </h1>
+    <p class="hero-sub">
+      Bot no Telegram recebe a pauta, IA profissional redige o release,
+      WordPress publica e WhatsApp distribui — tudo em segundos, sem intervenção humana.
+    </p>
+    <div class="hero-actions">
+      <!-- Substitua o número pelo seu WhatsApp -->
+      <a href="https://wa.me/5511999999999?text=Oi%2C+quero+conhecer+a+Plataforma+Candidatos" target="_blank"
+         class="btn btn-wa btn-lg">
+        💬 Falar no WhatsApp
+      </a>
+      <a href="#como-funciona" class="btn btn-ghost-light btn-lg">
+        Ver como funciona ↓
+      </a>
+    </div>
+  </div>
+  <div class="hero-scroll">
+    <div class="hero-scroll-bar"></div>
+    <span>role para ver</span>
+  </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+  <div class="stats-grid">
+    <div class="stat-item fade-up">
+      <div class="num">&lt; 5min</div>
+      <div class="desc">para cadastrar um candidato e ter o bot funcionando</div>
+    </div>
+    <div class="stat-item fade-up">
+      <div class="num">100%</div>
+      <div class="desc">automático do Telegram ao WordPress e WhatsApp</div>
+    </div>
+    <div class="stat-item fade-up">
+      <div class="num">+8h</div>
+      <div class="desc">economizadas por semana em redação e distribuição</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROBLEMA -->
+<section class="section dark">
+  <div class="section-inner">
+    <div style="text-align:center;max-width:600px;margin:0 auto var(--sp-4)">
+      <div class="section-label dark fade-up">O problema</div>
+      <h2 class="section-title-lg dark fade-up">
+        Gerenciar a comunicação de candidatos é caótico.<br>
+        <span style="color:#60a5fa">Era.</span>
+      </h2>
+      <p class="section-desc dark fade-up" style="margin:0 auto">
+        Sem a plataforma, o assessor vive no limite. Com ela, você automatiza o processo inteiro.
+      </p>
+    </div>
+    <div class="problema-grid">
+      <div class="problema-col before fade-up">
+        <h3>😓 Sem a plataforma</h3>
+        <div class="problema-item"><span class="icon">✗</span><span>Horas digitando releases que chegam como áudio no WhatsApp</span></div>
+        <div class="problema-item"><span class="icon">✗</span><span>Copiar e colar manualmente no WordPress de cada candidato</span></div>
+        <div class="problema-item"><span class="icon">✗</span><span>Encaminhar notícias para dezenas de grupos um por um</span></div>
+        <div class="problema-item"><span class="icon">✗</span><span>Perder pautas urgentes fora do horário comercial</span></div>
+        <div class="problema-item"><span class="icon">✗</span><span>Gerenciar múltiplos candidatos com planilhas e chats dispersos</span></div>
+      </div>
+      <div class="problema-col after fade-up">
+        <h3>🚀 Com a Plataforma Candidatos</h3>
+        <div class="problema-item"><span class="icon">✓</span><span>IA reescreve o áudio ou texto em release profissional automaticamente</span></div>
+        <div class="problema-item"><span class="icon">✓</span><span>WordPress publica o post sozinho, com título, categoria e imagem</span></div>
+        <div class="problema-item"><span class="icon">✓</span><span>Todos os grupos do candidato recebem a notícia na hora</span></div>
+        <div class="problema-item"><span class="icon">✓</span><span>Bot Telegram trabalha 24/7, sem depender do assessor</span></div>
+        <div class="problema-item"><span class="icon">✓</span><span>Um painel unificado para gerenciar todos os candidatos</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="section light" id="como-funciona">
+  <div class="section-inner">
+    <div style="text-align:center;max-width:600px;margin:0 auto">
+      <div class="section-label fade-up">Como funciona</div>
+      <h2 class="section-title-lg light fade-up">Três passos para automatizar sua campanha</h2>
+      <p class="section-desc light fade-up" style="margin:0 auto">
+        Da configuração à primeira publicação automática em menos de 10 minutos.
+      </p>
+    </div>
+    <div class="steps-grid">
+      <div class="step fade-up">
+        <div class="step-num">1</div>
+        <h3>Cadastre o candidato</h3>
+        <p>Informe o WordPress, token do bot Telegram e adicione os assessores autorizados. Cada candidato fica completamente isolado.</p>
+      </div>
+      <div class="step fade-up">
+        <div class="step-num">2</div>
+        <h3>Conecte o WhatsApp</h3>
+        <p>Escaneie o QR code com o celular do candidato. Selecione quais grupos de apoiadores receberão as notícias automaticamente.</p>
+      </div>
+      <div class="step fade-up">
+        <div class="step-num">3</div>
+        <h3>Envie e pronto</h3>
+        <p>O assessor manda uma mensagem ou áudio no bot Telegram. A IA redige, o WordPress publica e o WhatsApp distribui — tudo sozinho.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section dark" id="features">
+  <div class="section-inner">
+    <div style="text-align:center;max-width:600px;margin:0 auto">
+      <div class="section-label dark fade-up">Funcionalidades</div>
+      <h2 class="section-title-lg dark fade-up">Tudo que uma assessoria moderna precisa</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card fade-up">
+        <div class="feature-icon">🤖</div>
+        <h3>Bot Telegram por candidato</h3>
+        <p>Cada candidato tem seu próprio bot exclusivo. Assessores autorizados enviam pautas diretamente pelo Telegram.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <div class="feature-icon">✍️</div>
+        <h3>IA Redatora integrada</h3>
+        <p>DeepSeek ou OpenAI transforma mensagens brutas e áudios em releases jornalísticos profissionais, no estilo do candidato.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <div class="feature-icon">📰</div>
+        <h3>Publicação automática no WordPress</h3>
+        <p>Posts criados, formatados e publicados via API REST sem qualquer intervenção humana. Compatível com qualquer WordPress.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <div class="feature-icon">📱</div>
+        <h3>Distribuição em grupos de WhatsApp</h3>
+        <p>Grupos de apoiadores, lideranças e imprensa recebem as notícias automaticamente via Evolution API.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <div class="feature-icon">🏛️</div>
+        <h3>Multi-candidatos isolados</h3>
+        <p>Gerencie quantos candidatos precisar. Cada um tem seu próprio bot, grupos e histórico de publicações completamente separados.</p>
+      </div>
+      <div class="feature-card fade-up">
+        <div class="feature-icon">👥</div>
+        <h3>Controle de assessores</h3>
+        <p>Adicione e remova assessores por candidato usando o Telegram ID. Apenas usuários autorizados conseguem acionar o bot.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PARA QUEM -->
+<section class="section dark" id="para-quem" style="padding-top:0">
+  <div class="section-inner">
+    <div style="text-align:center;max-width:600px;margin:0 auto var(--sp-4)">
+      <div class="section-label dark fade-up">Para quem é</div>
+      <h2 class="section-title-lg dark fade-up">Feito para quem vive a campanha</h2>
+    </div>
+    <div class="para-quem-grid">
+      <div class="persona-card assessor fade-up">
+        <span class="persona-tag">Assessor de Imprensa</span>
+        <h3>Gerencie 10 candidatos com o trabalho de 1</h3>
+        <p class="tagline">Você manda a pauta, a plataforma faz o resto. Sem abrir o WordPress, sem encaminhar grupos.</p>
+        <ul class="persona-list">
+          <li>Envie por texto ou áudio direto no Telegram</li>
+          <li>Prompt personalizado por candidato</li>
+          <li>Histórico completo de publicações no painel</li>
+          <li>Múltiplos candidatos, um único login</li>
+        </ul>
+      </div>
+      <div class="persona-card candidato fade-up">
+        <span class="persona-tag">Candidato / Campanha</span>
+        <h3>Comunicação profissional sem equipe de TI</h3>
+        <p class="tagline">Sua campanha presente no site e no WhatsApp em segundos, com o mesmo profissionalismo de campanhas maiores.</p>
+        <ul class="persona-list">
+          <li>Link exclusivo para conectar o WhatsApp</li>
+          <li>Notícias nos grupos de apoiadores na hora</li>
+          <li>WordPress atualizado automaticamente</li>
+          <li>Transparência total via painel admin</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-final">
+  <div class="cta-final-inner">
+    <h2 class="fade-up">
+      Pronto para automatizar<br>
+      <span style="color:#60a5fa">sua campanha?</span>
+    </h2>
+    <p class="fade-up">
+      Fale conosco pelo WhatsApp e tenha o primeiro candidato configurado ainda hoje.
+    </p>
+    <!-- Substitua o número pelo seu WhatsApp -->
+    <a href="https://wa.me/5511999999999?text=Oi%2C+quero+conhecer+a+Plataforma+Candidatos" target="_blank"
+       class="btn btn-wa btn-xl fade-up">
+      💬 Falar no WhatsApp agora
+    </a>
+    <p class="fade-up" style="margin-top:var(--sp-6);font-size:var(--text-sm);color:var(--c-text-faint)">
+      Sem contrato, sem taxa de setup. Comece hoje.
+    </p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <a href="/" class="footer-logo">
+    <span class="logo-icon">📋</span>
+    Plataforma Candidatos
+  </a>
+  <nav class="footer-links">
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#features">Funcionalidades</a>
+    <a href="#para-quem">Para quem</a>
+    <a href="/admin">Painel admin</a>
+  </nav>
+  <span class="footer-copy">© 2026 Plataforma Candidatos</span>
+</footer>
+
+<script>
+  // Nav — adiciona classe .scrolled ao rolar
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 20);
+  }, { passive: true });
+
+  // Fade-up — anima elementos ao entrar na viewport
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+  }, { threshold: .12 });
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

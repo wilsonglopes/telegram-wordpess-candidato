@@ -4,93 +4,90 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel — Plataforma Candidatos</title>
+  <link rel="stylesheet" href="/design-system.css">
   <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+    body { background: var(--c-bg); min-height: 100vh; }
+
     /* ── LOGIN ── */
-    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
-    .login-box{background:#1e293b;border-radius:12px;padding:40px;width:360px}
-    .login-box h1{font-size:1.4rem;margin-bottom:6px}
-    .login-box p{color:#94a3b8;font-size:.9rem;margin-bottom:24px}
-    /* ── INPUTS ── */
-    input,textarea,select{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:.95rem;margin-bottom:14px}
-    input:focus,textarea:focus{outline:none;border-color:#3b82f6}
-    textarea{min-height:80px;resize:vertical;margin-bottom:14px}
-    label{display:block;font-size:.8rem;color:#94a3b8;margin-bottom:4px;margin-top:10px}
-    /* ── BUTTONS ── */
-    .btn{padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s}
-    .btn-primary{background:#3b82f6;color:#fff}.btn-primary:hover{background:#2563eb}
-    .btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
-    .btn-ghost{background:#334155;color:#e2e8f0}.btn-ghost:hover{background:#475569}
-    .btn-sm{padding:6px 14px;font-size:.82rem;border-radius:6px}
-    .btn-success{background:#16a34a;color:#fff}.btn-success:hover{background:#15803d}
-    /* ── LAYOUT ── */
-    .app{display:none}
-    header{background:#1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-    header h1{font-size:1rem;font-weight:700}
-    main{padding:24px;max-width:1100px;margin:0 auto}
-    /* ── TABLE ── */
-    .card{background:#1e293b;border-radius:10px;overflow:hidden;margin-bottom:20px}
-    .card-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
-    .card-header h2{font-size:.95rem;font-weight:600}
-    table{width:100%;border-collapse:collapse}
-    th{text-align:left;color:#64748b;font-size:.75rem;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #334155;letter-spacing:.05em}
-    td{padding:13px 16px;border-bottom:1px solid #0f172a;font-size:.88rem;vertical-align:middle}
-    tr:last-child td{border-bottom:none}
-    tr:hover td{background:#162032}
-    /* ── BADGES ── */
-    .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
-    .badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7}
-    .badge.conectado{background:#14532d;color:#86efac}
-    .badge.pendente{background:#713f12;color:#fde68a}
-    .badge.desconectado{background:#450a0a;color:#fca5a5}
-    .badge.ativo{background:#1e3a5f;color:#93c5fd}
-    .badge.inativo{background:#1e1e2e;color:#6b7280}
-    /* ── MODAL (drawer) ── */
-    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:flex-end;justify-content:center}
-    .overlay.open{display:flex}
-    .drawer{background:#1e293b;border-radius:16px 16px 0 0;width:100%;max-width:860px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column}
-    .drawer-head{padding:20px 24px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-    .drawer-head h2{font-size:1.1rem;font-weight:700}
-    .drawer-body{flex:1;overflow-y:auto}
-    /* ── TABS ── */
-    .tabs{display:flex;gap:0;border-bottom:1px solid #334155;padding:0 24px;flex-shrink:0;background:#1e293b}
-    .tab-btn{padding:12px 18px;font-size:.85rem;background:none;border:none;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500;transition:color .15s}
-    .tab-btn:hover{color:#e2e8f0}
-    .tab-btn.active{color:#3b82f6;border-bottom-color:#3b82f6}
-    .tab-pane{display:none;padding:24px}
-    .tab-pane.active{display:block}
-    /* ── FORM GRID ── */
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
-    @media(max-width:600px){.grid2{grid-template-columns:1fr}}
-    /* ── LISTS (assessores, grupos, publicações) ── */
-    .list-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0f172a;border-radius:8px;margin-bottom:8px;font-size:.88rem;gap:10px}
-    .list-item .info{flex:1}
-    .list-item .sub{color:#64748b;font-size:.78rem;margin-top:2px}
-    .add-row{display:flex;gap:10px;margin-top:8px}
-    .add-row input{margin-bottom:0;flex:1}
-    .section-title{font-size:.8rem;text-transform:uppercase;color:#64748b;letter-spacing:.08em;margin:20px 0 10px;font-weight:600}
-    .empty-state{text-align:center;color:#64748b;padding:30px;font-size:.88rem}
-    /* ── QR LINK ── */
-    .qr-link-box{display:flex;gap:10px;align-items:center;background:#0f172a;border-radius:8px;padding:10px 14px;margin-top:6px;font-size:.85rem}
-    .qr-link-box code{flex:1;color:#60a5fa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    /* ── TOAST ── */
-    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;font-size:.88rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
-    .toast.show{opacity:1}
-    .toast.error{background:#dc2626}
-    /* ── STATUS WA grande ── */
-    .wa-status-row{display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border-radius:10px;margin-bottom:16px}
-    .wa-status-row .label{font-size:.8rem;color:#64748b}
-    /* ── PUBLS ── */
-    .pub-item{padding:12px 14px;background:#0f172a;border-radius:8px;margin-bottom:8px}
-    .pub-item a{color:#60a5fa;text-decoration:none;font-size:.82rem}.pub-item a:hover{text-decoration:underline}
-    .pub-date{color:#64748b;font-size:.78rem;margin-top:3px}
-    /* ── SYNC BTN ── */
-    .sync-btn{display:flex;align-items:center;gap:8px}
-    .spin{animation:rotate .8s linear infinite;display:inline-block}
-    @keyframes rotate{to{transform:rotate(360deg)}}
-    /* ── ERRO ── */
-    .erro{color:#f87171;font-size:.83rem;margin-top:6px}
+    .login-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: var(--sp-6);
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 0%, rgba(37,99,235,.15) 0%, transparent 70%);
+    }
+    .login-box {
+      background: var(--c-bg-card);
+      border-radius: var(--r-xl);
+      padding: var(--sp-10);
+      width: 100%;
+      max-width: 380px;
+      border: 1px solid rgba(255,255,255,.06);
+      box-shadow: var(--shadow-lg);
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: var(--sp-8);
+    }
+    .login-logo .icon {
+      width: 40px; height: 40px;
+      background: var(--c-primary);
+      border-radius: var(--r-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 2px 12px rgba(37,99,235,.5);
+    }
+    .login-logo h1 { font-size: var(--text-base); font-weight: 700; }
+    .login-logo p  { font-size: var(--text-xs); color: var(--c-text-faint); }
+
+    /* ── APP LAYOUT ── */
+    .app { display: none; }
+    header {
+      background: var(--c-bg-card);
+      padding: 0 clamp(var(--sp-5), 3vw, var(--sp-8));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      border-bottom: 1px solid var(--c-border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(8px);
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: var(--text-sm);
+    }
+    .header-logo .icon {
+      width: 30px; height: 30px;
+      background: var(--c-primary);
+      border-radius: var(--r-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .header-actions { display: flex; gap: var(--sp-3); align-items: center; }
+    .header-ts { font-size: var(--text-xs); color: var(--c-text-faint); }
+
+    main {
+      padding: var(--sp-8) clamp(var(--sp-5), 3vw, var(--sp-8));
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── TABLE CONTAINER ── */
+    .table-wrap { overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -98,10 +95,16 @@
 <!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-box">
-    <h1>Painel Admin</h1>
-    <p>Plataforma Candidatos — acesso restrito</p>
-    <input type="password" id="senhaInput" placeholder="Senha" onkeydown="if(event.key==='Enter')login()">
-    <button class="btn btn-primary" style="width:100%" onclick="login()">Entrar</button>
+    <div class="login-logo">
+      <div class="icon">📋</div>
+      <div>
+        <h1>Plataforma Candidatos</h1>
+        <p>Painel administrativo</p>
+      </div>
+    </div>
+    <label>Senha de acesso</label>
+    <input type="password" id="senhaInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary" style="width:100%;margin-top:var(--sp-2)" onclick="login()">Entrar</button>
     <div class="erro" id="loginErro"></div>
   </div>
 </div>
@@ -109,31 +112,57 @@
 <!-- APP -->
 <div class="app" id="app">
   <header>
-    <h1>📋 Plataforma Candidatos</h1>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-primary btn-sm" onclick="abrirNovo()">+ Novo Candidato</button>
+    <div class="header-logo">
+      <div class="icon">📋</div>
+      Plataforma Candidatos
+    </div>
+    <div class="header-actions">
+      <span class="header-ts" id="ultimaAtual"></span>
+      <button class="btn btn-primary btn-sm" onclick="abrirNovo()">+ Novo candidato</button>
       <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
     </div>
   </header>
   <main>
+    <!-- Stats -->
+    <div class="stat-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-label">Total de candidatos</div>
+        <div class="stat-value" id="statTotal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Candidatos ativos</div>
+        <div class="stat-value" id="statAtivos">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">WhatsApp conectado</div>
+        <div class="stat-value" id="statConectados">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Bots Telegram</div>
+        <div class="stat-value" id="statBots">—</div>
+      </div>
+    </div>
+
+    <!-- Tabela -->
     <div class="card">
       <div class="card-header">
         <h2>Candidatos</h2>
-        <span id="ultimaAtual" style="color:#64748b;font-size:.78rem"></span>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Candidato</th>
-            <th>WordPress</th>
-            <th>Bot Telegram</th>
-            <th>WhatsApp</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="tabelaClientes"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Candidato</th>
+              <th>WordPress</th>
+              <th>Bot Telegram</th>
+              <th>WhatsApp</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaClientes"></tbody>
+        </table>
+      </div>
     </div>
   </main>
 </div>
@@ -144,7 +173,7 @@
     <div class="drawer-head">
       <div>
         <h2 id="drawerTitulo">Candidato</h2>
-        <div id="drawerSubtitulo" style="color:#64748b;font-size:.82rem;margin-top:3px"></div>
+        <div id="drawerSubtitulo" style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:3px"></div>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">✕ Fechar</button>
     </div>
@@ -155,6 +184,7 @@
       <button class="tab-btn" onclick="trocarTab('publicacoes')">📰 Publicações</button>
     </div>
     <div class="drawer-body">
+
       <!-- ABA: DADOS -->
       <div class="tab-pane active" id="tab-dados">
         <input type="hidden" id="dId">
@@ -165,7 +195,7 @@
           </div>
           <div>
             <label>Slug (somente leitura)</label>
-            <input type="text" id="dSlug" disabled style="color:#64748b">
+            <input type="text" id="dSlug" disabled>
           </div>
         </div>
         <div class="grid2">
@@ -183,16 +213,16 @@
         <label>Token do Bot Telegram</label>
         <input type="text" id="dBotToken" placeholder="1234567890:AABBcc...">
         <label>Prompt personalizado de redação</label>
-        <textarea id="dPrompt" placeholder="Deixe vazio para usar o prompt padrão (redator de assessoria de imprensa política)..."></textarea>
-        <label>Link de conexão WhatsApp (enviar ao cliente)</label>
+        <textarea id="dPrompt" placeholder="Deixe vazio para usar o prompt padrão…"></textarea>
+        <label>Link de conexão WhatsApp</label>
         <div class="qr-link-box">
           <code id="dQrLink">—</code>
           <button class="btn btn-ghost btn-sm" onclick="copiarLink()">Copiar</button>
           <a id="dQrLinkHref" href="#" target="_blank" class="btn btn-ghost btn-sm">Abrir ↗</a>
         </div>
-        <div style="display:flex;gap:10px;margin-top:20px;justify-content:space-between">
-          <button class="btn btn-danger btn-sm" id="btnAtivoToggle" onclick="toggleAtivo()"></button>
-          <div style="display:flex;gap:10px">
+        <div style="display:flex;gap:var(--sp-3);margin-top:var(--sp-5);justify-content:space-between;flex-wrap:wrap">
+          <button class="btn btn-sm" id="btnAtivoToggle" onclick="toggleAtivo()"></button>
+          <div style="display:flex;gap:var(--sp-3)">
             <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="salvarDados()">Salvar alterações</button>
           </div>
@@ -208,7 +238,9 @@
           <input type="text"   id="aNome"       placeholder="Nome (opcional)" style="flex:1">
           <button class="btn btn-primary btn-sm" onclick="adicionarAssessor()">+ Adicionar</button>
         </div>
-        <p style="color:#64748b;font-size:.78rem;margin-top:6px">Para obter o ID do Telegram: o assessor deve enviar uma mensagem para @userinfobot</p>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:var(--sp-2)">
+          Para obter o ID: o assessor deve enviar uma mensagem para @userinfobot no Telegram.
+        </p>
       </div>
 
       <!-- ABA: WHATSAPP -->
@@ -216,21 +248,21 @@
         <div class="wa-status-row">
           <div>
             <div class="label">Status da conexão</div>
-            <div id="waStatusBadge" style="margin-top:4px"><span class="badge pendente">pendente</span></div>
+            <div id="waStatusBadge" style="margin-top:var(--sp-1)"><span class="badge pendente">pendente</span></div>
           </div>
-          <div style="margin-left:auto;display:flex;gap:10px">
-            <button class="btn btn-ghost btn-sm sync-btn" onclick="atualizarStatusWA()" id="btnRefreshWA">⟳ Atualizar</button>
+          <div style="margin-left:auto;display:flex;gap:var(--sp-3)">
+            <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()" id="btnRefreshWA">⟳ Atualizar</button>
           </div>
         </div>
-
         <div class="section-title">Grupos ativos</div>
         <div id="listaGrupos"><div class="empty-state">Carregando…</div></div>
-
         <div class="section-title">Grupos disponíveis na instância</div>
-        <div style="display:flex;gap:10px;margin-bottom:12px">
-          <button class="btn btn-ghost btn-sm sync-btn" onclick="sincronizarGrupos()" id="btnSyncGrupos">⟳ Sincronizar com WhatsApp</button>
+        <div style="display:flex;gap:var(--sp-3);margin-bottom:var(--sp-3)">
+          <button class="btn btn-ghost btn-sm" onclick="sincronizarGrupos()" id="btnSyncGrupos">⟳ Sincronizar com WhatsApp</button>
         </div>
-        <div id="gruposDisponiveis"><div style="color:#64748b;font-size:.85rem">Clique em Sincronizar para buscar os grupos da instância conectada.</div></div>
+        <div id="gruposDisponiveis" style="color:var(--c-text-faint);font-size:var(--text-sm)">
+          Clique em Sincronizar para buscar os grupos da instância conectada.
+        </div>
       </div>
 
       <!-- ABA: PUBLICAÇÕES -->
@@ -248,7 +280,7 @@
       <h2>Novo Candidato</h2>
       <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">✕</button>
     </div>
-    <div class="drawer-body" style="padding:24px">
+    <div class="drawer-body" style="padding:var(--sp-6)">
       <div class="grid2">
         <div>
           <label>Nome do candidato *</label>
@@ -275,7 +307,7 @@
       <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois">
       <label>Prompt personalizado</label>
       <textarea id="nPrompt" placeholder="Opcional — usa padrão se vazio"></textarea>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <div style="display:flex;gap:var(--sp-3);justify-content:flex-end;margin-top:var(--sp-2)">
         <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="criarCandidato()">Criar candidato</button>
       </div>
@@ -326,7 +358,7 @@ function mostrarApp() {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   carregarClientes();
-  setInterval(carregarClientes, 30000); // atualiza status WA a cada 30s
+  setInterval(carregarClientes, 30000);
 }
 
 // ─── LISTA CANDIDATOS ─────────────────────────────────────
@@ -334,19 +366,26 @@ async function carregarClientes() {
   try {
     const clientes = await api('/clientes');
     document.getElementById('ultimaAtual').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+
+    // Stats
+    document.getElementById('statTotal').textContent      = clientes.length;
+    document.getElementById('statAtivos').textContent     = clientes.filter(c => c.ativo).length;
+    document.getElementById('statConectados').textContent = clientes.filter(c => c.whatsapp_status === 'conectado').length;
+    document.getElementById('statBots').textContent       = clientes.filter(c => c.telegram_bot_token).length;
+
     const tbody = document.getElementById('tabelaClientes');
     if (!clientes.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:30px">Nenhum candidato cadastrado</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--c-text-faint);padding:var(--sp-8)">Nenhum candidato cadastrado</td></tr>';
       return;
     }
     tbody.innerHTML = clientes.map(c => `
       <tr>
         <td>
           <strong>${esc(c.nome)}</strong>
-          <div style="color:#64748b;font-size:.75rem;margin-top:2px">${esc(c.slug)}</div>
+          <div style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:2px">${esc(c.slug)}</div>
         </td>
         <td>
-          <a href="${esc(c.wp_url)}" target="_blank" style="color:#60a5fa;font-size:.82rem">
+          <a href="${esc(c.wp_url)}" target="_blank" style="color:#60a5fa;font-size:var(--text-xs)">
             ${esc(c.wp_url.replace(/^https?:\/\//,'').replace(/\/$/,''))}
           </a>
         </td>
@@ -410,9 +449,9 @@ function trocarTab(nome) {
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + nome).classList.add('active');
-  if (nome === 'assessores')   carregarAssessores();
-  if (nome === 'whatsapp')     carregarWhatsapp();
-  if (nome === 'publicacoes')  carregarPublicacoes();
+  if (nome === 'assessores')  carregarAssessores();
+  if (nome === 'whatsapp')    carregarWhatsapp();
+  if (nome === 'publicacoes') carregarPublicacoes();
 }
 
 // ─── DADOS ────────────────────────────────────────────────
@@ -502,7 +541,7 @@ async function carregarWhatsapp() {
 
 async function atualizarStatusWA() {
   const badge = document.getElementById('waStatusBadge');
-  badge.innerHTML = '<span style="color:#64748b;font-size:.82rem">Verificando…</span>';
+  badge.innerHTML = '<span style="color:var(--c-text-faint);font-size:var(--text-sm)">Verificando…</span>';
   try {
     const c = await api(`/clientes/${clienteAtual}`);
     const status = c.whatsapp_status || 'pendente';
@@ -527,8 +566,8 @@ function renderGruposSalvos() {
             <strong>${esc(g.nome)}</strong>
             <div class="sub">JID: ${esc(g.group_jid)}</div>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <label style="margin:0;font-size:.8rem;color:#94a3b8;display:flex;align-items:center;gap:6px;cursor:pointer">
+          <div style="display:flex;gap:var(--sp-2);align-items:center">
+            <label style="margin:0;font-size:var(--text-xs);color:var(--c-text-muted);display:flex;align-items:center;gap:6px;cursor:pointer">
               <input type="checkbox" ${g.ativo ? 'checked' : ''} onchange="toggleGrupo(${g.id}, this.checked)" style="width:auto;margin:0">
               Ativo
             </label>
@@ -564,12 +603,12 @@ async function sincronizarGrupos() {
   try {
     gruposDisp = await api(`/whatsapp/grupos/${clienteAtual}`);
     if (!gruposDisp.length) {
-      el.innerHTML = '<div style="color:#64748b;font-size:.85rem">Nenhum grupo encontrado. O WhatsApp precisa estar conectado e participar de grupos.</div>';
+      el.innerHTML = '<div style="color:var(--c-text-faint);font-size:var(--text-sm)">Nenhum grupo encontrado. O WhatsApp precisa estar conectado e participar de grupos.</div>';
     } else {
       renderGruposDisponiveis();
     }
   } catch(err) {
-    el.innerHTML = `<div style="color:#f87171;font-size:.85rem">Erro: ${err.message}. Verifique se o WhatsApp está conectado.</div>`;
+    el.innerHTML = `<div style="color:#f87171;font-size:var(--text-sm)">Erro: ${err.message}. Verifique se o WhatsApp está conectado.</div>`;
   } finally {
     btn.innerHTML = '⟳ Sincronizar com WhatsApp';
     btn.disabled  = false;
@@ -588,7 +627,7 @@ function renderGruposDisponiveis() {
           <div class="sub">JID: ${esc(g.jid)}</div>
         </div>
         ${jaSalvo
-          ? '<span style="color:#64748b;font-size:.8rem">Já adicionado ✓</span>'
+          ? '<span style="color:var(--c-text-faint);font-size:var(--text-xs)">Já adicionado ✓</span>'
           : `<button class="btn btn-success btn-sm" onclick="adicionarGrupo('${esc(g.jid)}','${esc(g.nome)}',this)">+ Adicionar</button>`
         }
       </div>`;
@@ -616,9 +655,9 @@ async function carregarPublicacoes() {
     el.innerHTML = lista.length
       ? lista.map(p => `
           <div class="pub-item">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-              <strong style="font-size:.88rem">${esc(p.titulo || 'Sem título')}</strong>
-              <span class="badge ${p.status === 'publicado' ? 'ativo' : 'desconectado'}" style="flex-shrink:0">${esc(p.status)}</span>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3)">
+              <strong style="font-size:var(--text-sm)">${esc(p.titulo || 'Sem título')}</strong>
+              <span class="badge ${p.status === 'publicado' ? 'publicado' : 'erro'}" style="flex-shrink:0">${esc(p.status)}</span>
             </div>
             ${p.wp_post_url ? `<a href="${esc(p.wp_post_url)}" target="_blank">🔗 Ver no WordPress ↗</a>` : ''}
             <div class="pub-date">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
@@ -649,7 +688,6 @@ async function criarCandidato() {
     toast(`Candidato criado! Token QR: ${r.token_qr}`);
     ['nNome','nSlug','nWpUrl','nWpUsuario','nWpSenha','nBotToken','nPrompt'].forEach(id => document.getElementById(id).value = '');
     carregarClientes();
-    // Abre detalhe para mostrar link QR
     setTimeout(() => abrirDetalhe(r.id), 500);
   } catch(err) { toast('Erro: ' + err.message, true); }
 }
