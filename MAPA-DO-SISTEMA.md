@@ -1,7 +1,7 @@
 # 🗺️ Mapa do Sistema — Plataforma Candidatos
 
 > **Leia este arquivo ANTES de qualquer alteração.**
-> Última atualização: 2026-05-28
+> Última atualização: 2026-05-28 — deploy completo + FB/IG/WA com imagem
 
 ---
 
@@ -9,15 +9,22 @@
 
 Plataforma SaaS multi-tenant para assessoria de imprensa de campanhas políticas.
 
-**Fluxo principal:**
+**Fluxo completo:**
 ```
-Assessor → Telegram Bot → IA → WordPress → Grupos WhatsApp
+Assessor → Telegram (texto/foto/áudio)
+         → Whisper (transcrição, se áudio)
+         → DeepSeek/OpenAI (chapéu + título + resumo + corpo)
+         → WordPress via CampanhaPress plugin
+         → [paralelo] WhatsApp grupos (imagem + link)
+                      Facebook Page (foto + caption)
+                      Instagram Business (foto + caption)
 ```
 
 **Produto:** cada candidato contratado recebe:
 - Um bot Telegram exclusivo para a equipe de assessoria
-- Publicação automática no WordPress dele
-- Distribuição nos grupos de WhatsApp da campanha
+- Publicação automática no WordPress com chapéu editorial
+- Distribuição nos grupos de WhatsApp (com imagem)
+- Post automático no Facebook e Instagram da campanha
 
 ---
 
@@ -29,12 +36,16 @@ Assessor → Telegram Bot → IA → WordPress → Grupos WhatsApp
 | `backend/bot.js` | Gerenciador de bots Telegram (um por cliente) |
 | `backend/db.js` | PostgreSQL — pool de conexão + migrations |
 | `backend/connectors/ai.js` | Geração de matéria via DeepSeek ou OpenAI |
-| `backend/connectors/wordpress.js` | Publicação de posts + upload de imagem |
-| `backend/connectors/evolution.js` | Evolution API — QR code, status, envio grupos |
+| `backend/connectors/wordpress.js` | Plugin (cpub/v1) ou App Password (fallback) |
+| `backend/connectors/evolution.js` | Evolution API — QR code, status, sendMedia |
+| `backend/connectors/social.js` | Facebook Graph API + Instagram Business API |
 | `backend/routes/auth.js` | Login admin + middleware JWT |
-| `backend/routes/clientes.js` | CRUD completo de candidatos |
+| `backend/routes/clientes.js` | CRUD candidatos + hot-reload bot + PATCH grupos |
 | `backend/routes/whatsapp.js` | QR code público + listar grupos |
-| `frontend/admin/index.html` | Painel admin — login + gerenciamento |
+| `frontend/admin/index.html` | Painel admin completo com design system |
+| `frontend/design-system.css` | Tokens CSS compartilhados |
+| `frontend/index.html` | Landing page da plataforma |
+| `portal-publisher/campanhapress.php` | Plugin WP deste sistema (cpub/v1) |
 | `frontend/conectar/index.html` | Página QR code para o cliente escanear |
 | `backend/settings.json` | **NÃO está no git** — configurações runtime |
 | `backend/settings.json.example` | Modelo de configuração — este sim no git |
