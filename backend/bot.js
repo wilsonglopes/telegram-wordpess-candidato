@@ -15,6 +15,13 @@ const settings = require('./settings.json');
 
 const CARDS_DIR = path.join(__dirname, 'cards');
 
+// Escapa caracteres especiais do HTML para o parse_mode 'HTML' do Telegram.
+// Usado em todo conteúdo dinâmico (título, chapéu, resumo gerados pela IA)
+// para evitar erro "can't parse entities".
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 const botsAtivos = new Map();
 
 // ── SESSÕES ────────────────────────────────────────────────────────────────────
@@ -61,16 +68,16 @@ function teclado(canais) {
 }
 
 function textoPrevia(materia, canais) {
-  const chapeu = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
-  const resumo = materia.resumo ? `\n📝 ${materia.resumo}\n` : '';
+  const chapeu = materia.chapeu ? `🏷️ <i>${esc(materia.chapeu)}</i>\n` : '';
+  const resumo = materia.resumo ? `\n📝 ${esc(materia.resumo)}\n` : '';
   return (
-    `📰 *PRÉVIA DA MATÉRIA*\n\n` +
-    `${chapeu}*${materia.titulo}*${resumo}\n` +
-    `*Publicar em:*\n` +
+    `📰 <b>PRÉVIA DA MATÉRIA</b>\n\n` +
+    `${chapeu}<b>${esc(materia.titulo)}</b>${resumo}\n` +
+    `<b>Publicar em:</b>\n` +
     `${canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
     `${canais.fb ? '✅' : '⬜'} Facebook\n` +
     `${canais.ig ? '✅' : '⬜'} Instagram\n\n` +
-    `_Ative ou desative os canais e clique em 🚀 Publicar_`
+    `<i>Ative ou desative os canais e clique em 🚀 Publicar</i>`
   );
 }
 
@@ -138,20 +145,20 @@ async function processarMensagem(bot, cliente, msg) {
   // ── COMANDOS ────────────────────────────────────────────────────
   if (texto === '/start' || texto === '/ajuda') {
     return bot.sendMessage(chatId,
-      `👋 *Bot de assessoria — ${cliente.nome}*\n\n` +
-      `*Como usar:*\n` +
+      `👋 <b>Bot de assessoria — ${esc(cliente.nome)}</b>\n\n` +
+      `<b>Como usar:</b>\n` +
       `1️⃣ Envie textos, fotos e/ou áudios com o material\n` +
       `2️⃣ Digite /gerar quando terminar\n` +
       `3️⃣ Revise a prévia e escolha os canais\n` +
       `4️⃣ Clique em 🚀 Publicar\n\n` +
-      `*Comandos:*\n` +
+      `<b>Comandos:</b>\n` +
       `/gerar — gera a matéria com o material enviado\n` +
       `/rascunho — vê o que foi acumulado\n` +
       `/limpar — descarta o rascunho atual\n` +
       `/status — status da conexão\n` +
       `/grupos — grupos de WhatsApp ativos\n` +
       `/ajuda — esta mensagem`,
-      { parse_mode: 'Markdown' }
+      { parse_mode: 'HTML' }
     );
   }
 
@@ -168,10 +175,10 @@ async function processarMensagem(bot, cliente, msg) {
       return bot.sendMessage(chatId, '📋 Rascunho vazio. Envie textos ou fotos para começar.');
     }
     const resumo =
-      `📋 *Rascunho atual:*\n\n` +
+      `📋 <b>Rascunho atual:</b>\n\n` +
       (sessao.imagemUrl ? `📸 1 foto anexada\n` : '') +
-      (sessao.textos.length ? `📝 ${sessao.textos.length} texto(s):\n${sessao.textos.map((t,i) => `${i+1}. ${t.slice(0,80)}…`).join('\n')}` : '');
-    return bot.sendMessage(chatId, resumo, { parse_mode: 'Markdown' });
+      (sessao.textos.length ? `📝 ${sessao.textos.length} texto(s):\n${esc(sessao.textos.map((t,i) => `${i+1}. ${t.slice(0,80)}…`).join('\n'))}` : '');
+    return bot.sendMessage(chatId, resumo, { parse_mode: 'HTML' });
   }
 
   if (texto === '/gerar') {
@@ -201,8 +208,8 @@ async function processarMensagem(bot, cliente, msg) {
       if (!transcricao) return bot.editMessageText('❌ Não foi possível transcrever.', { chat_id: chatId, message_id: transcrevendo.message_id });
       sessao.textos.push(transcricao);
       return bot.editMessageText(
-        `🎤 *Transcrição adicionada ao rascunho:*\n_${transcricao}_\n\nEnvie mais material ou /gerar para criar a matéria.`,
-        { chat_id: chatId, message_id: transcrevendo.message_id, parse_mode: 'Markdown' }
+        `🎤 <b>Transcrição adicionada ao rascunho:</b>\n<i>${esc(transcricao)}</i>\n\nEnvie mais material ou /gerar para criar a matéria.`,
+        { chat_id: chatId, message_id: transcrevendo.message_id, parse_mode: 'HTML' }
       );
     } catch (err) {
       return bot.editMessageText(`❌ Erro na transcrição: ${err.message}`, { chat_id: chatId, message_id: transcrevendo.message_id });
@@ -252,7 +259,7 @@ async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
   await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
 
   const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
-    parse_mode:   'Markdown',
+    parse_mode:   'HTML',
     reply_markup: teclado(sessao.canais),
   });
   sessao.msgId = preview.message_id;
@@ -296,7 +303,7 @@ async function processarCallback(bot, cliente, cbQuery) {
     await bot.editMessageText(textoPrevia(sessao.materia, sessao.canais), {
       chat_id:      chatId,
       message_id:   cbQuery.message.message_id,
-      parse_mode:   'Markdown',
+      parse_mode:   'HTML',
       reply_markup: teclado(sessao.canais),
     });
     return;
@@ -331,8 +338,8 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
     ).catch(() => {});
     limparSessao(cliente.id, userId);
     return bot.sendMessage(chatId,
-      `⚠️ Falha ao publicar no WordPress.\n\n*Erro:* ${err.message}`,
-      { parse_mode: 'Markdown' }
+      `⚠️ Falha ao publicar no WordPress.\n\n<b>Erro:</b> ${esc(err.message)}`,
+      { parse_mode: 'HTML' }
     );
   }
 
@@ -407,15 +414,15 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
 
   limparSessao(cliente.id, userId);
 
-  const chapeuTexto = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
-  const erroTexto = erros.length ? `\n\n⚠️ _Erros:_\n${erros.map(e => `• ${e}`).join('\n')}` : '';
+  const chapeuTexto = materia.chapeu ? `🏷️ <i>${esc(materia.chapeu)}</i>\n` : '';
+  const erroTexto = erros.length ? `\n\n⚠️ <i>Erros:</i>\n${esc(erros.map(e => `• ${e}`).join('\n'))}` : '';
 
   await bot.sendMessage(chatId,
-    `✅ *Publicado em ${publicados.length} canal(is)!*\n\n` +
-    `${chapeuTexto}📰 *${materia.titulo}*\n\n` +
-    `🔗 ${post.link}\n\n` +
-    `_${publicados.join(' · ')}_${erroTexto}`,
-    { parse_mode: 'Markdown' }
+    `✅ <b>Publicado em ${publicados.length} canal(is)!</b>\n\n` +
+    `${chapeuTexto}📰 <b>${esc(materia.titulo)}</b>\n\n` +
+    `🔗 ${esc(post.link)}\n\n` +
+    `<i>${esc(publicados.join(' · '))}</i>${erroTexto}`,
+    { parse_mode: 'HTML' }
   );
 }
 
@@ -429,17 +436,17 @@ async function cmdStatus(bot, cliente, chatId) {
   const wa = c?.whatsapp_status || 'desconhecido';
   const waIcon = wa === 'conectado' ? '🟢' : wa === 'pendente' ? '🟡' : '🔴';
 
-  let msg = `📊 *Status — ${cliente.nome}*\n\n${waIcon} WhatsApp: ${wa}\n\n`;
+  let msg = `📊 <b>Status — ${esc(cliente.nome)}</b>\n\n${waIcon} WhatsApp: ${wa}\n\n`;
   if (pubs.length) {
-    msg += `📰 *Últimas publicações:*\n`;
+    msg += `📰 <b>Últimas publicações:</b>\n`;
     pubs.forEach(p => {
-      msg += `• ${p.titulo || 'Sem título'} (${new Date(p.criado_em).toLocaleDateString('pt-BR')})\n`;
-      if (p.wp_post_url) msg += `  🔗 ${p.wp_post_url}\n`;
+      msg += `• ${esc(p.titulo || 'Sem título')} (${new Date(p.criado_em).toLocaleDateString('pt-BR')})\n`;
+      if (p.wp_post_url) msg += `  🔗 ${esc(p.wp_post_url)}\n`;
     });
   } else {
     msg += `📰 Nenhuma publicação ainda.`;
   }
-  bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+  bot.sendMessage(chatId, msg, { parse_mode: 'HTML' });
 }
 
 async function cmdGrupos(bot, cliente, chatId) {
@@ -452,10 +459,10 @@ async function cmdGrupos(bot, cliente, chatId) {
   }
   const ativos   = rows.filter(g => g.ativo);
   const inativos = rows.filter(g => !g.ativo);
-  let msg = `📱 *Grupos — ${cliente.nome}*\n\n`;
-  if (ativos.length)   msg += `✅ *Ativos (${ativos.length}):*\n` + ativos.map(g => `• ${g.nome}`).join('\n') + '\n\n';
-  if (inativos.length) msg += `⏸️ *Pausados:*\n` + inativos.map(g => `• ${g.nome}`).join('\n');
-  bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+  let msg = `📱 <b>Grupos — ${esc(cliente.nome)}</b>\n\n`;
+  if (ativos.length)   msg += `✅ <b>Ativos (${ativos.length}):</b>\n` + esc(ativos.map(g => `• ${g.nome}`).join('\n')) + '\n\n';
+  if (inativos.length) msg += `⏸️ <b>Pausados:</b>\n` + esc(inativos.map(g => `• ${g.nome}`).join('\n'));
+  bot.sendMessage(chatId, msg, { parse_mode: 'HTML' });
 }
 
 // ── RELATÓRIO SEMANAL ──────────────────────────────────────────────────────────
@@ -480,11 +487,11 @@ async function verificarRelatorioSemanal() {
       if (!assessores.length) continue;
       const total = parseInt(cliente.total_semana) || 0;
       const msg =
-        `📊 *Relatório Semanal — ${cliente.nome}*\n\n` +
-        `📰 *${total}* matéria${total !== 1 ? 's' : ''} publicada${total !== 1 ? 's' : ''} nos últimos 7 dias.\n\n` +
-        `_Relatório automático — toda segunda-feira às 8h._`;
+        `📊 <b>Relatório Semanal — ${esc(cliente.nome)}</b>\n\n` +
+        `📰 <b>${total}</b> matéria${total !== 1 ? 's' : ''} publicada${total !== 1 ? 's' : ''} nos últimos 7 dias.\n\n` +
+        `<i>Relatório automático — toda segunda-feira às 8h.</i>`;
       for (const a of assessores) {
-        bot.sendMessage(a.telegram_user_id, msg, { parse_mode: 'Markdown' }).catch(() => {});
+        bot.sendMessage(a.telegram_user_id, msg, { parse_mode: 'HTML' }).catch(() => {});
       }
     }
   } catch (err) { console.error('[relatorio] Erro:', err.message); }

@@ -39,10 +39,26 @@ async function postarFacebook({ fb_page_id, fb_access_token, chapeu, titulo, res
       return r.data;
     }
   } catch (err) {
-    const msg = err.response?.data?.error?.message || err.message;
+    const msg = traduzErroMeta(err);
     console.error('[social] Facebook erro:', msg);
-    throw new Error(`Facebook: ${msg}`);
+    throw new Error(msg);
   }
+}
+
+// Traduz erros comuns da Graph API para mensagens acionáveis
+function traduzErroMeta(err) {
+  const e = err.response?.data?.error || {};
+  const raw = e.message || err.message || 'erro desconhecido';
+  if (/publish_actions|pages_manage_posts|permission/i.test(raw)) {
+    return 'Token sem permissão para publicar. Gere um Page Access Token com pages_manage_posts e instagram_content_publish no Graph API Explorer.';
+  }
+  if (/expired|session has been invalidated|access token/i.test(raw)) {
+    return 'Token expirado ou inválido. Gere um novo Page Access Token de longa duração.';
+  }
+  if (e.code === 190) {
+    return 'Token inválido (code 190). Verifique o Page Access Token nas configurações de Redes Sociais.';
+  }
+  return raw;
 }
 
 // ── INSTAGRAM ─────────────────────────────────────────────────────────────────
@@ -75,9 +91,9 @@ async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, re
     console.log(`[social] Instagram postado: ${pub.data?.id}`);
     return pub.data;
   } catch (err) {
-    const msg = err.response?.data?.error?.message || err.message;
+    const msg = traduzErroMeta(err);
     console.error('[social] Instagram erro:', msg);
-    throw new Error(`Instagram: ${msg}`);
+    throw new Error(msg);
   }
 }
 
