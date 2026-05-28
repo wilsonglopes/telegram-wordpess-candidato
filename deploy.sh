@@ -21,5 +21,10 @@ fi
 pm2 restart $PM2_NAME 2>/dev/null || pm2 start server.js --name $PM2_NAME
 pm2 save
 
+# Instala log rotation (idempotente)
+pm2 install pm2-logrotate 2>/dev/null || true
+pm2 set pm2-logrotate:max_size 10M 2>/dev/null || true
+pm2 set pm2-logrotate:retain 7    2>/dev/null || true
+
 echo "=== Deploy concluído ==="
 pm2 show $PM2_NAME | grep -E "status|uptime"

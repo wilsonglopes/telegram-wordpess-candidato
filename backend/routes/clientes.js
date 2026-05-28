@@ -4,7 +4,7 @@ const express = require('express');
 const { query } = require('../db');
 const { authMiddleware } = require('./auth');
 const { criarInstancia } = require('../connectors/evolution');
-const { iniciarBot } = require('../bot');
+const { iniciarBot, pararBot } = require('../bot');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -82,6 +82,16 @@ router.patch('/:id', async (req, res) => {
     if (updates.length === 0) return res.status(400).json({ erro: 'Nada para atualizar' });
     values.push(req.params.id);
     await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
+
+    // Hot-reload: reinicia o bot se o token Telegram mudou
+    if (req.body.telegram_bot_token !== undefined) {
+      pararBot(Number(req.params.id));
+      if (req.body.telegram_bot_token) {
+        const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [req.params.id]);
+        if (rows[0]) try { iniciarBot(rows[0]); } catch {}
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -98,6 +108,12 @@ router.post('/:id/grupos', async (req, res) => {
   const { group_jid, nome } = req.body;
   await query(`INSERT INTO grupos_whatsapp (cliente_id, group_jid, nome) VALUES ($1, $2, $3)`, [req.params.id, group_jid, nome]);
   res.status(201).json({ ok: true });
+});
+
+router.patch('/:id/grupos/:gid', async (req, res) => {
+  const { ativo } = req.body;
+  await query(`UPDATE grupos_whatsapp SET ativo = $1 WHERE id = $2 AND cliente_id = $3`, [ativo, req.params.gid, req.params.id]);
+  res.json({ ok: true });
 });
 
 router.delete('/:id/grupos/:gid', async (req, res) => {

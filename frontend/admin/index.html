@@ -5,44 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel — Plataforma Candidatos</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-    .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .login-box { background: #1e293b; border-radius: 12px; padding: 40px; width: 360px; }
-    .login-box h1 { font-size: 1.4rem; margin-bottom: 8px; }
-    .login-box p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; }
-    input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 1rem; margin-bottom: 16px; }
-    button { width: 100%; padding: 12px; border-radius: 8px; background: #3b82f6; color: #fff; font-size: 1rem; cursor: pointer; border: none; }
-    button:hover { background: #2563eb; }
-    .erro { color: #f87171; font-size: 0.85rem; margin-top: 8px; }
-    /* Dashboard */
-    .app { display: none; }
-    header { background: #1e293b; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 1.1rem; }
-    .btn-sm { padding: 8px 16px; border-radius: 8px; background: #3b82f6; color: #fff; border: none; cursor: pointer; font-size: 0.9rem; }
-    .btn-sm:hover { background: #2563eb; }
-    .btn-danger { background: #ef4444; }
-    .btn-danger:hover { background: #dc2626; }
-    main { padding: 24px; max-width: 1000px; margin: 0 auto; }
-    .card { background: #1e293b; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
-    th { text-align: left; color: #94a3b8; font-size: 0.8rem; padding: 8px 12px; border-bottom: 1px solid #334155; }
-    td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 0.9rem; }
-    tr:hover td { background: #0f172a; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-    .badge.conectado { background: #14532d; color: #86efac; }
-    .badge.pendente   { background: #713f12; color: #fde68a; }
-    .badge.desconectado { background: #450a0a; color: #fca5a5; }
-    /* Modal */
-    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 100; }
-    .modal-overlay.open { display: flex; }
-    .modal { background: #1e293b; border-radius: 12px; padding: 28px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
-    .modal h2 { margin-bottom: 20px; }
-    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; margin-top: 14px; }
-    textarea { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 0.9rem; min-height: 80px; resize: vertical; }
-    .modal-footer { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
-    .link-qr { color: #60a5fa; text-decoration: none; font-size: 0.85rem; }
-    .link-qr:hover { text-decoration: underline; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+    /* ── LOGIN ── */
+    .login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .login-box{background:#1e293b;border-radius:12px;padding:40px;width:360px}
+    .login-box h1{font-size:1.4rem;margin-bottom:6px}
+    .login-box p{color:#94a3b8;font-size:.9rem;margin-bottom:24px}
+    /* ── INPUTS ── */
+    input,textarea,select{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:.95rem;margin-bottom:14px}
+    input:focus,textarea:focus{outline:none;border-color:#3b82f6}
+    textarea{min-height:80px;resize:vertical;margin-bottom:14px}
+    label{display:block;font-size:.8rem;color:#94a3b8;margin-bottom:4px;margin-top:10px}
+    /* ── BUTTONS ── */
+    .btn{padding:10px 20px;border-radius:8px;border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:background .15s}
+    .btn-primary{background:#3b82f6;color:#fff}.btn-primary:hover{background:#2563eb}
+    .btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
+    .btn-ghost{background:#334155;color:#e2e8f0}.btn-ghost:hover{background:#475569}
+    .btn-sm{padding:6px 14px;font-size:.82rem;border-radius:6px}
+    .btn-success{background:#16a34a;color:#fff}.btn-success:hover{background:#15803d}
+    /* ── LAYOUT ── */
+    .app{display:none}
+    header{background:#1e293b;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+    header h1{font-size:1rem;font-weight:700}
+    main{padding:24px;max-width:1100px;margin:0 auto}
+    /* ── TABLE ── */
+    .card{background:#1e293b;border-radius:10px;overflow:hidden;margin-bottom:20px}
+    .card-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155}
+    .card-header h2{font-size:.95rem;font-weight:600}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;color:#64748b;font-size:.75rem;text-transform:uppercase;padding:10px 16px;border-bottom:1px solid #334155;letter-spacing:.05em}
+    td{padding:13px 16px;border-bottom:1px solid #0f172a;font-size:.88rem;vertical-align:middle}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#162032}
+    /* ── BADGES ── */
+    .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+    .badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7}
+    .badge.conectado{background:#14532d;color:#86efac}
+    .badge.pendente{background:#713f12;color:#fde68a}
+    .badge.desconectado{background:#450a0a;color:#fca5a5}
+    .badge.ativo{background:#1e3a5f;color:#93c5fd}
+    .badge.inativo{background:#1e1e2e;color:#6b7280}
+    /* ── MODAL (drawer) ── */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100;align-items:flex-end;justify-content:center}
+    .overlay.open{display:flex}
+    .drawer{background:#1e293b;border-radius:16px 16px 0 0;width:100%;max-width:860px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column}
+    .drawer-head{padding:20px 24px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .drawer-head h2{font-size:1.1rem;font-weight:700}
+    .drawer-body{flex:1;overflow-y:auto}
+    /* ── TABS ── */
+    .tabs{display:flex;gap:0;border-bottom:1px solid #334155;padding:0 24px;flex-shrink:0;background:#1e293b}
+    .tab-btn{padding:12px 18px;font-size:.85rem;background:none;border:none;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500;transition:color .15s}
+    .tab-btn:hover{color:#e2e8f0}
+    .tab-btn.active{color:#3b82f6;border-bottom-color:#3b82f6}
+    .tab-pane{display:none;padding:24px}
+    .tab-pane.active{display:block}
+    /* ── FORM GRID ── */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+    @media(max-width:600px){.grid2{grid-template-columns:1fr}}
+    /* ── LISTS (assessores, grupos, publicações) ── */
+    .list-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#0f172a;border-radius:8px;margin-bottom:8px;font-size:.88rem;gap:10px}
+    .list-item .info{flex:1}
+    .list-item .sub{color:#64748b;font-size:.78rem;margin-top:2px}
+    .add-row{display:flex;gap:10px;margin-top:8px}
+    .add-row input{margin-bottom:0;flex:1}
+    .section-title{font-size:.8rem;text-transform:uppercase;color:#64748b;letter-spacing:.08em;margin:20px 0 10px;font-weight:600}
+    .empty-state{text-align:center;color:#64748b;padding:30px;font-size:.88rem}
+    /* ── QR LINK ── */
+    .qr-link-box{display:flex;gap:10px;align-items:center;background:#0f172a;border-radius:8px;padding:10px 14px;margin-top:6px;font-size:.85rem}
+    .qr-link-box code{flex:1;color:#60a5fa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* ── TOAST ── */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:12px 24px;border-radius:8px;font-size:.88rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
+    .toast.show{opacity:1}
+    .toast.error{background:#dc2626}
+    /* ── STATUS WA grande ── */
+    .wa-status-row{display:flex;align-items:center;gap:12px;padding:14px;background:#0f172a;border-radius:10px;margin-bottom:16px}
+    .wa-status-row .label{font-size:.8rem;color:#64748b}
+    /* ── PUBLS ── */
+    .pub-item{padding:12px 14px;background:#0f172a;border-radius:8px;margin-bottom:8px}
+    .pub-item a{color:#60a5fa;text-decoration:none;font-size:.82rem}.pub-item a:hover{text-decoration:underline}
+    .pub-date{color:#64748b;font-size:.78rem;margin-top:3px}
+    /* ── SYNC BTN ── */
+    .sync-btn{display:flex;align-items:center;gap:8px}
+    .spin{animation:rotate .8s linear infinite;display:inline-block}
+    @keyframes rotate{to{transform:rotate(360deg)}}
+    /* ── ERRO ── */
+    .erro{color:#f87171;font-size:.83rem;margin-top:6px}
   </style>
 </head>
 <body>
@@ -53,7 +101,7 @@
     <h1>Painel Admin</h1>
     <p>Plataforma Candidatos — acesso restrito</p>
     <input type="password" id="senhaInput" placeholder="Senha" onkeydown="if(event.key==='Enter')login()">
-    <button onclick="login()">Entrar</button>
+    <button class="btn btn-primary" style="width:100%" onclick="login()">Entrar</button>
     <div class="erro" id="loginErro"></div>
   </div>
 </div>
@@ -63,19 +111,24 @@
   <header>
     <h1>📋 Plataforma Candidatos</h1>
     <div style="display:flex;gap:10px">
-      <button class="btn-sm" onclick="abrirModalNovo()">+ Novo Candidato</button>
-      <button class="btn-sm btn-danger" onclick="logout()">Sair</button>
+      <button class="btn btn-primary btn-sm" onclick="abrirNovo()">+ Novo Candidato</button>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
     </div>
   </header>
   <main>
     <div class="card">
+      <div class="card-header">
+        <h2>Candidatos</h2>
+        <span id="ultimaAtual" style="color:#64748b;font-size:.78rem"></span>
+      </div>
       <table>
         <thead>
           <tr>
             <th>Candidato</th>
             <th>WordPress</th>
+            <th>Bot Telegram</th>
             <th>WhatsApp</th>
-            <th>Link QR</th>
+            <th>Status</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -85,130 +138,524 @@
   </main>
 </div>
 
-<!-- MODAL NOVO/EDITAR -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
-    <h2 id="modalTitulo">Novo Candidato</h2>
-    <input type="hidden" id="clienteId">
-    <label>Nome do candidato *</label>
-    <input type="text" id="fNome" placeholder="Ex: Zé Milton">
-    <label>Slug (identificador único) *</label>
-    <input type="text" id="fSlug" placeholder="Ex: ze-milton">
-    <label>URL do WordPress *</label>
-    <input type="url" id="fWpUrl" placeholder="https://siteducandidato.com.br">
-    <label>Usuário WordPress *</label>
-    <input type="text" id="fWpUsuario" placeholder="admin">
-    <label>Senha de Aplicativo WordPress *</label>
-    <input type="text" id="fWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
-    <label>Token do Bot Telegram</label>
-    <input type="text" id="fBotToken" placeholder="1234567890:AABBcc...">
-    <label>Prompt personalizado (estilo de redação)</label>
-    <textarea id="fPrompt" placeholder="Ex: Escreva como assessor de imprensa político. Tom formal e objetivo..."></textarea>
-    <div class="modal-footer">
-      <button class="btn-sm" style="background:#475569" onclick="fecharModal()">Cancelar</button>
-      <button class="btn-sm" onclick="salvarCliente()">Salvar</button>
+<!-- DRAWER: DETALHE CANDIDATO -->
+<div class="overlay" id="drawerOverlay" onclick="if(event.target===this)fecharDrawer()">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <h2 id="drawerTitulo">Candidato</h2>
+        <div id="drawerSubtitulo" style="color:#64748b;font-size:.82rem;margin-top:3px"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">✕ Fechar</button>
+    </div>
+    <div class="tabs" id="tabsBar">
+      <button class="tab-btn active" onclick="trocarTab('dados')">⚙️ Dados</button>
+      <button class="tab-btn" onclick="trocarTab('assessores')">👥 Assessores</button>
+      <button class="tab-btn" onclick="trocarTab('whatsapp')">📱 WhatsApp</button>
+      <button class="tab-btn" onclick="trocarTab('publicacoes')">📰 Publicações</button>
+    </div>
+    <div class="drawer-body">
+      <!-- ABA: DADOS -->
+      <div class="tab-pane active" id="tab-dados">
+        <input type="hidden" id="dId">
+        <div class="grid2">
+          <div>
+            <label>Nome do candidato *</label>
+            <input type="text" id="dNome">
+          </div>
+          <div>
+            <label>Slug (somente leitura)</label>
+            <input type="text" id="dSlug" disabled style="color:#64748b">
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <label>URL do WordPress *</label>
+            <input type="url" id="dWpUrl">
+          </div>
+          <div>
+            <label>Usuário WordPress *</label>
+            <input type="text" id="dWpUsuario">
+          </div>
+        </div>
+        <label>Senha de Aplicativo WordPress (deixe vazio para não alterar)</label>
+        <input type="text" id="dWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
+        <label>Token do Bot Telegram</label>
+        <input type="text" id="dBotToken" placeholder="1234567890:AABBcc...">
+        <label>Prompt personalizado de redação</label>
+        <textarea id="dPrompt" placeholder="Deixe vazio para usar o prompt padrão (redator de assessoria de imprensa política)..."></textarea>
+        <label>Link de conexão WhatsApp (enviar ao cliente)</label>
+        <div class="qr-link-box">
+          <code id="dQrLink">—</code>
+          <button class="btn btn-ghost btn-sm" onclick="copiarLink()">Copiar</button>
+          <a id="dQrLinkHref" href="#" target="_blank" class="btn btn-ghost btn-sm">Abrir ↗</a>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:space-between">
+          <button class="btn btn-danger btn-sm" id="btnAtivoToggle" onclick="toggleAtivo()"></button>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="salvarDados()">Salvar alterações</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABA: ASSESSORES -->
+      <div class="tab-pane" id="tab-assessores">
+        <div id="listaAssessores"><div class="empty-state">Carregando…</div></div>
+        <div class="section-title">Adicionar assessor</div>
+        <div class="add-row">
+          <input type="number" id="aTelegramId" placeholder="Telegram User ID (ex: 123456789)" style="flex:2">
+          <input type="text"   id="aNome"       placeholder="Nome (opcional)" style="flex:1">
+          <button class="btn btn-primary btn-sm" onclick="adicionarAssessor()">+ Adicionar</button>
+        </div>
+        <p style="color:#64748b;font-size:.78rem;margin-top:6px">Para obter o ID do Telegram: o assessor deve enviar uma mensagem para @userinfobot</p>
+      </div>
+
+      <!-- ABA: WHATSAPP -->
+      <div class="tab-pane" id="tab-whatsapp">
+        <div class="wa-status-row">
+          <div>
+            <div class="label">Status da conexão</div>
+            <div id="waStatusBadge" style="margin-top:4px"><span class="badge pendente">pendente</span></div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:10px">
+            <button class="btn btn-ghost btn-sm sync-btn" onclick="atualizarStatusWA()" id="btnRefreshWA">⟳ Atualizar</button>
+          </div>
+        </div>
+
+        <div class="section-title">Grupos ativos</div>
+        <div id="listaGrupos"><div class="empty-state">Carregando…</div></div>
+
+        <div class="section-title">Grupos disponíveis na instância</div>
+        <div style="display:flex;gap:10px;margin-bottom:12px">
+          <button class="btn btn-ghost btn-sm sync-btn" onclick="sincronizarGrupos()" id="btnSyncGrupos">⟳ Sincronizar com WhatsApp</button>
+        </div>
+        <div id="gruposDisponiveis"><div style="color:#64748b;font-size:.85rem">Clique em Sincronizar para buscar os grupos da instância conectada.</div></div>
+      </div>
+
+      <!-- ABA: PUBLICAÇÕES -->
+      <div class="tab-pane" id="tab-publicacoes">
+        <div id="listaPublicacoes"><div class="empty-state">Carregando…</div></div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- MODAL: NOVO CANDIDATO -->
+<div class="overlay" id="novoOverlay" onclick="if(event.target===this)fecharNovo()">
+  <div class="drawer" style="max-width:600px">
+    <div class="drawer-head">
+      <h2>Novo Candidato</h2>
+      <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">✕</button>
+    </div>
+    <div class="drawer-body" style="padding:24px">
+      <div class="grid2">
+        <div>
+          <label>Nome do candidato *</label>
+          <input type="text" id="nNome" placeholder="Ex: Zé Milton">
+        </div>
+        <div>
+          <label>Slug único *</label>
+          <input type="text" id="nSlug" placeholder="ex: ze-milton">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>URL do WordPress *</label>
+          <input type="url" id="nWpUrl" placeholder="https://site.com.br">
+        </div>
+        <div>
+          <label>Usuário WordPress *</label>
+          <input type="text" id="nWpUsuario" placeholder="admin">
+        </div>
+      </div>
+      <label>Senha de Aplicativo WordPress *</label>
+      <input type="text" id="nWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
+      <label>Token do Bot Telegram</label>
+      <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois">
+      <label>Prompt personalizado</label>
+      <textarea id="nPrompt" placeholder="Opcional — usa padrão se vazio"></textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="criarCandidato()">Criar candidato</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
 <script>
 const API = '/api';
 let TOKEN = localStorage.getItem('admin_token') || '';
+let clienteAtual = null;
+let gruposSalvos = [];
+let gruposDisp   = [];
 
-async function apiFetch(path, opts = {}) {
+// ─── API HELPER ───────────────────────────────────────────
+async function api(path, opts = {}) {
   const r = await fetch(API + path, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN, ...(opts.headers || {}) },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN, ...(opts.headers||{}) },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.erro || r.statusText); }
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.erro || r.statusText); }
   return r.json();
 }
 
+function toast(msg, erro = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (erro ? ' error' : '');
+  setTimeout(() => el.className = 'toast', 2800);
+}
+
+// ─── AUTH ─────────────────────────────────────────────────
 async function login() {
   const senha = document.getElementById('senhaInput').value;
   try {
-    const { token } = await apiFetch('/auth/login', { method: 'POST', body: { senha } });
+    const { token } = await api('/auth/login', { method: 'POST', body: { senha } });
     TOKEN = token;
     localStorage.setItem('admin_token', token);
     mostrarApp();
   } catch { document.getElementById('loginErro').textContent = 'Senha incorreta'; }
 }
-
 function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.reload(); }
-
 function mostrarApp() {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   carregarClientes();
+  setInterval(carregarClientes, 30000); // atualiza status WA a cada 30s
 }
 
+// ─── LISTA CANDIDATOS ─────────────────────────────────────
 async function carregarClientes() {
   try {
-    const clientes = await apiFetch('/clientes');
+    const clientes = await api('/clientes');
+    document.getElementById('ultimaAtual').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
     const tbody = document.getElementById('tabelaClientes');
+    if (!clientes.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:30px">Nenhum candidato cadastrado</td></tr>';
+      return;
+    }
     tbody.innerHTML = clientes.map(c => `
       <tr>
-        <td><strong>${c.nome}</strong></td>
-        <td><a href="${c.wp_url}" target="_blank" style="color:#60a5fa">${c.wp_url.replace('https://','')}</a></td>
-        <td><span class="badge ${c.whatsapp_status}">${c.whatsapp_status}</span></td>
-        <td><a class="link-qr" href="/conectar/${c.token_qr || ''}" target="_blank">Link QR ↗</a></td>
-        <td><button class="btn-sm" onclick="editarCliente(${c.id})">Editar</button></td>
+        <td>
+          <strong>${esc(c.nome)}</strong>
+          <div style="color:#64748b;font-size:.75rem;margin-top:2px">${esc(c.slug)}</div>
+        </td>
+        <td>
+          <a href="${esc(c.wp_url)}" target="_blank" style="color:#60a5fa;font-size:.82rem">
+            ${esc(c.wp_url.replace(/^https?:\/\//,'').replace(/\/$/,''))}
+          </a>
+        </td>
+        <td>
+          <span class="badge ${c.telegram_bot_token ? 'ativo' : 'inativo'}">
+            ${c.telegram_bot_token ? 'Ativo' : 'Sem token'}
+          </span>
+        </td>
+        <td><span class="badge ${c.whatsapp_status}">${esc(c.whatsapp_status)}</span></td>
+        <td><span class="badge ${c.ativo ? 'ativo' : 'inativo'}">${c.ativo ? 'Ativo' : 'Inativo'}</span></td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="abrirDetalhe(${c.id})">Gerenciar →</button>
+        </td>
       </tr>
     `).join('');
-  } catch (err) { console.error(err); }
+  } catch(err) { console.error(err); }
 }
 
-function abrirModalNovo() {
-  document.getElementById('modalTitulo').textContent = 'Novo Candidato';
-  document.getElementById('clienteId').value = '';
-  ['fNome','fSlug','fWpUrl','fWpUsuario','fWpSenha','fBotToken','fPrompt'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('fSlug').disabled = false;
-  document.getElementById('modalOverlay').classList.add('open');
-}
+function esc(s='') { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-async function editarCliente(id) {
-  const c = await apiFetch(`/clientes/${id}`);
-  document.getElementById('modalTitulo').textContent = 'Editar Candidato';
-  document.getElementById('clienteId').value = c.id;
-  document.getElementById('fNome').value = c.nome || '';
-  document.getElementById('fSlug').value = c.slug || '';
-  document.getElementById('fSlug').disabled = true;
-  document.getElementById('fWpUrl').value = c.wp_url || '';
-  document.getElementById('fWpUsuario').value = c.wp_usuario || '';
-  document.getElementById('fWpSenha').value = '';
-  document.getElementById('fBotToken').value = c.telegram_bot_token || '';
-  document.getElementById('fPrompt').value = c.ai_prompt || '';
-  document.getElementById('modalOverlay').classList.add('open');
-}
-
-function fecharModal() { document.getElementById('modalOverlay').classList.remove('open'); }
-
-async function salvarCliente() {
-  const id = document.getElementById('clienteId').value;
-  const body = {
-    nome:               document.getElementById('fNome').value,
-    slug:               document.getElementById('fSlug').value,
-    wp_url:             document.getElementById('fWpUrl').value,
-    wp_usuario:         document.getElementById('fWpUsuario').value,
-    wp_senha:           document.getElementById('fWpSenha').value,
-    telegram_bot_token: document.getElementById('fBotToken').value || undefined,
-    ai_prompt:          document.getElementById('fPrompt').value || undefined,
-  };
+// ─── DRAWER: DETALHE ──────────────────────────────────────
+async function abrirDetalhe(id) {
+  clienteAtual = id;
+  trocarTab('dados');
+  document.getElementById('drawerOverlay').classList.add('open');
   try {
-    if (id) {
-      if (!body.wp_senha) delete body.wp_senha;
-      await apiFetch(`/clientes/${id}`, { method: 'PATCH', body });
-    } else {
-      await apiFetch('/clientes', { method: 'POST', body });
-    }
-    fecharModal();
-    carregarClientes();
-  } catch (err) { alert('Erro: ' + err.message); }
+    const c = await api(`/clientes/${id}`);
+    document.getElementById('drawerTitulo').textContent = c.nome;
+    document.getElementById('drawerSubtitulo').textContent = `slug: ${c.slug} • criado em ${new Date(c.criado_em).toLocaleDateString('pt-BR')}`;
+    document.getElementById('dId').value        = c.id;
+    document.getElementById('dNome').value      = c.nome      || '';
+    document.getElementById('dSlug').value      = c.slug      || '';
+    document.getElementById('dWpUrl').value     = c.wp_url    || '';
+    document.getElementById('dWpUsuario').value = c.wp_usuario|| '';
+    document.getElementById('dWpSenha').value   = '';
+    document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
+    document.getElementById('dPrompt').value    = c.ai_prompt || '';
+
+    const base = window.location.origin;
+    const link = c.token_qr ? `${base}/conectar/${c.token_qr}` : '—';
+    document.getElementById('dQrLink').textContent = link;
+    document.getElementById('dQrLinkHref').href    = link;
+
+    const btn = document.getElementById('btnAtivoToggle');
+    btn.textContent = c.ativo ? '⛔ Desativar candidato' : '✅ Reativar candidato';
+    btn.className   = 'btn btn-sm ' + (c.ativo ? 'btn-danger' : 'btn-success');
+    btn.dataset.ativo = c.ativo ? '1' : '0';
+  } catch(err) { toast('Erro ao carregar: ' + err.message, true); }
 }
 
-// Auto-login se token salvo
-if (TOKEN) { try { mostrarApp(); } catch { TOKEN = ''; } }
+function fecharDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  clienteAtual = null;
+  carregarClientes();
+}
+
+function trocarTab(nome) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const abas = ['dados','assessores','whatsapp','publicacoes'];
+    b.classList.toggle('active', abas[i] === nome);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + nome).classList.add('active');
+  if (nome === 'assessores')   carregarAssessores();
+  if (nome === 'whatsapp')     carregarWhatsapp();
+  if (nome === 'publicacoes')  carregarPublicacoes();
+}
+
+// ─── DADOS ────────────────────────────────────────────────
+async function salvarDados() {
+  const id = document.getElementById('dId').value;
+  const body = {
+    nome:               document.getElementById('dNome').value,
+    wp_url:             document.getElementById('dWpUrl').value,
+    wp_usuario:         document.getElementById('dWpUsuario').value,
+    telegram_bot_token: document.getElementById('dBotToken').value || null,
+    ai_prompt:          document.getElementById('dPrompt').value   || null,
+  };
+  const wp_senha = document.getElementById('dWpSenha').value;
+  if (wp_senha) body.wp_senha = wp_senha;
+  try {
+    await api(`/clientes/${id}`, { method: 'PATCH', body });
+    toast('Salvo com sucesso!');
+    document.getElementById('drawerTitulo').textContent = body.nome;
+    carregarClientes();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function toggleAtivo() {
+  const id  = document.getElementById('dId').value;
+  const btn = document.getElementById('btnAtivoToggle');
+  const ativo = btn.dataset.ativo !== '1';
+  try {
+    await api(`/clientes/${id}`, { method: 'PATCH', body: { ativo } });
+    btn.dataset.ativo = ativo ? '1' : '0';
+    btn.textContent   = ativo ? '⛔ Desativar candidato' : '✅ Reativar candidato';
+    btn.className     = 'btn btn-sm ' + (ativo ? 'btn-danger' : 'btn-success');
+    toast(ativo ? 'Candidato ativado' : 'Candidato desativado');
+    carregarClientes();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+function copiarLink() {
+  const link = document.getElementById('dQrLink').textContent;
+  if (link === '—') return;
+  navigator.clipboard.writeText(link).then(() => toast('Link copiado!'));
+}
+
+// ─── ASSESSORES ───────────────────────────────────────────
+async function carregarAssessores() {
+  const el = document.getElementById('listaAssessores');
+  try {
+    const lista = await api(`/clientes/${clienteAtual}/assessores`);
+    el.innerHTML = lista.length
+      ? lista.map(a => `
+          <div class="list-item">
+            <div class="info">
+              <strong>${esc(a.nome || 'Sem nome')}</strong>
+              <div class="sub">Telegram ID: ${a.telegram_user_id} • ${a.ativo ? 'Ativo' : 'Inativo'}</div>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="removerAssessor(${a.id})">Remover</button>
+          </div>`).join('')
+      : '<div class="empty-state">Nenhum assessor cadastrado ainda.</div>';
+  } catch(err) { el.innerHTML = `<div class="empty-state" style="color:#f87171">${err.message}</div>`; }
+}
+
+async function adicionarAssessor() {
+  const tid  = document.getElementById('aTelegramId').value.trim();
+  const nome = document.getElementById('aNome').value.trim();
+  if (!tid) return toast('Informe o Telegram User ID', true);
+  try {
+    await api(`/clientes/${clienteAtual}/assessores`, { method: 'POST', body: { telegram_user_id: Number(tid), nome } });
+    document.getElementById('aTelegramId').value = '';
+    document.getElementById('aNome').value = '';
+    toast('Assessor adicionado!');
+    carregarAssessores();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function removerAssessor(aid) {
+  if (!confirm('Remover este assessor?')) return;
+  try {
+    await api(`/clientes/${clienteAtual}/assessores/${aid}`, { method: 'DELETE' });
+    toast('Assessor removido');
+    carregarAssessores();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+// ─── WHATSAPP ─────────────────────────────────────────────
+async function carregarWhatsapp() {
+  await Promise.all([carregarGruposSalvos(), atualizarStatusWA()]);
+}
+
+async function atualizarStatusWA() {
+  const badge = document.getElementById('waStatusBadge');
+  badge.innerHTML = '<span style="color:#64748b;font-size:.82rem">Verificando…</span>';
+  try {
+    const c = await api(`/clientes/${clienteAtual}`);
+    const status = c.whatsapp_status || 'pendente';
+    badge.innerHTML = `<span class="badge ${status}">${status}</span>`;
+  } catch { badge.innerHTML = '<span class="badge desconectado">erro</span>'; }
+}
+
+async function carregarGruposSalvos() {
+  const el = document.getElementById('listaGrupos');
+  try {
+    gruposSalvos = await api(`/clientes/${clienteAtual}/grupos`);
+    renderGruposSalvos();
+  } catch(err) { el.innerHTML = `<div class="empty-state" style="color:#f87171">${err.message}</div>`; }
+}
+
+function renderGruposSalvos() {
+  const el = document.getElementById('listaGrupos');
+  el.innerHTML = gruposSalvos.length
+    ? gruposSalvos.map(g => `
+        <div class="list-item">
+          <div class="info">
+            <strong>${esc(g.nome)}</strong>
+            <div class="sub">JID: ${esc(g.group_jid)}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="margin:0;font-size:.8rem;color:#94a3b8;display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="checkbox" ${g.ativo ? 'checked' : ''} onchange="toggleGrupo(${g.id}, this.checked)" style="width:auto;margin:0">
+              Ativo
+            </label>
+            <button class="btn btn-danger btn-sm" onclick="removerGrupo(${g.id})">✕</button>
+          </div>
+        </div>`).join('')
+    : '<div class="empty-state">Nenhum grupo salvo. Sincronize e adicione grupos abaixo.</div>';
+}
+
+async function toggleGrupo(gid, ativo) {
+  try {
+    await api(`/clientes/${clienteAtual}/grupos/${gid}`, { method: 'PATCH', body: { ativo } });
+    const g = gruposSalvos.find(x => x.id === gid);
+    if (g) g.ativo = ativo;
+    toast(ativo ? 'Grupo ativado' : 'Grupo pausado');
+  } catch(err) { toast('Erro: ' + err.message, true); await carregarGruposSalvos(); }
+}
+
+async function removerGrupo(gid) {
+  if (!confirm('Remover este grupo da lista?')) return;
+  try {
+    await api(`/clientes/${clienteAtual}/grupos/${gid}`, { method: 'DELETE' });
+    toast('Grupo removido');
+    carregarGruposSalvos();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function sincronizarGrupos() {
+  const btn = document.getElementById('btnSyncGrupos');
+  const el  = document.getElementById('gruposDisponiveis');
+  btn.innerHTML = '<span class="spin">⟳</span> Buscando…';
+  btn.disabled  = true;
+  try {
+    gruposDisp = await api(`/whatsapp/grupos/${clienteAtual}`);
+    if (!gruposDisp.length) {
+      el.innerHTML = '<div style="color:#64748b;font-size:.85rem">Nenhum grupo encontrado. O WhatsApp precisa estar conectado e participar de grupos.</div>';
+    } else {
+      renderGruposDisponiveis();
+    }
+  } catch(err) {
+    el.innerHTML = `<div style="color:#f87171;font-size:.85rem">Erro: ${err.message}. Verifique se o WhatsApp está conectado.</div>`;
+  } finally {
+    btn.innerHTML = '⟳ Sincronizar com WhatsApp';
+    btn.disabled  = false;
+  }
+}
+
+function renderGruposDisponiveis() {
+  const el = document.getElementById('gruposDisponiveis');
+  const jidsSalvos = new Set(gruposSalvos.map(g => g.group_jid));
+  el.innerHTML = gruposDisp.map(g => {
+    const jaSalvo = jidsSalvos.has(g.jid);
+    return `
+      <div class="list-item">
+        <div class="info">
+          <strong>${esc(g.nome)}</strong>
+          <div class="sub">JID: ${esc(g.jid)}</div>
+        </div>
+        ${jaSalvo
+          ? '<span style="color:#64748b;font-size:.8rem">Já adicionado ✓</span>'
+          : `<button class="btn btn-success btn-sm" onclick="adicionarGrupo('${esc(g.jid)}','${esc(g.nome)}',this)">+ Adicionar</button>`
+        }
+      </div>`;
+  }).join('');
+}
+
+async function adicionarGrupo(jid, nome, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    await api(`/clientes/${clienteAtual}/grupos`, { method: 'POST', body: { group_jid: jid, nome } });
+    btn.textContent = 'Adicionado ✓';
+    btn.className   = 'btn btn-ghost btn-sm';
+    toast(`Grupo "${nome}" adicionado!`);
+    await carregarGruposSalvos();
+    renderGruposDisponiveis();
+  } catch(err) { toast('Erro: ' + err.message, true); btn.disabled = false; btn.textContent = '+ Adicionar'; }
+}
+
+// ─── PUBLICAÇÕES ──────────────────────────────────────────
+async function carregarPublicacoes() {
+  const el = document.getElementById('listaPublicacoes');
+  try {
+    const lista = await api(`/clientes/${clienteAtual}/publicacoes`);
+    el.innerHTML = lista.length
+      ? lista.map(p => `
+          <div class="pub-item">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+              <strong style="font-size:.88rem">${esc(p.titulo || 'Sem título')}</strong>
+              <span class="badge ${p.status === 'publicado' ? 'ativo' : 'desconectado'}" style="flex-shrink:0">${esc(p.status)}</span>
+            </div>
+            ${p.wp_post_url ? `<a href="${esc(p.wp_post_url)}" target="_blank">🔗 Ver no WordPress ↗</a>` : ''}
+            <div class="pub-date">${new Date(p.criado_em).toLocaleString('pt-BR')}</div>
+          </div>`).join('')
+      : '<div class="empty-state">Nenhuma publicação ainda. Envie uma mensagem pelo bot Telegram para começar.</div>';
+  } catch(err) { el.innerHTML = `<div class="empty-state" style="color:#f87171">${err.message}</div>`; }
+}
+
+// ─── NOVO CANDIDATO ───────────────────────────────────────
+function abrirNovo() { document.getElementById('novoOverlay').classList.add('open'); }
+function fecharNovo() { document.getElementById('novoOverlay').classList.remove('open'); }
+
+async function criarCandidato() {
+  const body = {
+    nome:               document.getElementById('nNome').value.trim(),
+    slug:               document.getElementById('nSlug').value.trim(),
+    wp_url:             document.getElementById('nWpUrl').value.trim(),
+    wp_usuario:         document.getElementById('nWpUsuario').value.trim(),
+    wp_senha:           document.getElementById('nWpSenha').value.trim(),
+    telegram_bot_token: document.getElementById('nBotToken').value.trim() || undefined,
+    ai_prompt:          document.getElementById('nPrompt').value.trim()   || undefined,
+  };
+  if (!body.nome || !body.slug || !body.wp_url || !body.wp_usuario || !body.wp_senha)
+    return toast('Preencha todos os campos obrigatórios (*)', true);
+  try {
+    const r = await api('/clientes', { method: 'POST', body });
+    fecharNovo();
+    toast(`Candidato criado! Token QR: ${r.token_qr}`);
+    ['nNome','nSlug','nWpUrl','nWpUsuario','nWpSenha','nBotToken','nPrompt'].forEach(id => document.getElementById(id).value = '');
+    carregarClientes();
+    // Abre detalhe para mostrar link QR
+    setTimeout(() => abrirDetalhe(r.id), 500);
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+if (TOKEN) mostrarApp();
 </script>
 </body>
 </html>

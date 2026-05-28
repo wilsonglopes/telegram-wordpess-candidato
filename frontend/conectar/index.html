@@ -3,77 +3,162 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Conectar WhatsApp</title>
+  <title>Conectar WhatsApp — Campanha</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-    .card { background: #1e293b; border-radius: 16px; padding: 40px; text-align: center; max-width: 420px; width: 95vw; }
-    .logo { font-size: 2.5rem; margin-bottom: 16px; }
-    h1 { font-size: 1.3rem; margin-bottom: 6px; }
-    p  { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; line-height: 1.5; }
-    #qrWrap img { width: 260px; height: 260px; border-radius: 10px; border: 4px solid #3b82f6; }
-    .status-ok { background: #14532d; color: #86efac; border-radius: 10px; padding: 20px; font-size: 1rem; }
-    .status-ok .icon { font-size: 2rem; margin-bottom: 8px; }
-    .spinner { border: 3px solid #334155; border-top-color: #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 0.8s linear infinite; margin: 20px auto; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .instrucoes { text-align: left; background: #0f172a; border-radius: 10px; padding: 16px; margin-top: 20px; }
-    .instrucoes h3 { font-size: 0.85rem; color: #94a3b8; margin-bottom: 10px; }
-    .instrucoes ol { padding-left: 18px; font-size: 0.85rem; color: #cbd5e1; line-height: 2; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+    .card{background:#1e293b;border-radius:16px;padding:36px 32px;max-width:460px;width:100%;text-align:center}
+    .logo{font-size:2.5rem;margin-bottom:12px}
+    h1{font-size:1.2rem;font-weight:700;margin-bottom:6px}
+    .sub{color:#94a3b8;font-size:.88rem;margin-bottom:28px;line-height:1.5}
+    /* QR */
+    #qrWrap img{width:240px;height:240px;border-radius:10px;border:4px solid #3b82f6;margin-bottom:16px}
+    /* Spinner */
+    .spinner{border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;width:44px;height:44px;animation:spin .8s linear infinite;margin:20px auto}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    /* Sucesso */
+    .sucesso{background:#14532d;border-radius:12px;padding:24px;margin-bottom:20px}
+    .sucesso .icon{font-size:2.5rem;margin-bottom:10px}
+    .sucesso h2{color:#86efac;font-size:1.1rem;margin-bottom:6px}
+    .sucesso p{color:#86efac;font-size:.85rem}
+    /* Steps */
+    .steps{background:#0f172a;border-radius:12px;padding:20px;text-align:left;margin-top:20px}
+    .steps h3{font-size:.78rem;text-transform:uppercase;color:#64748b;letter-spacing:.08em;margin-bottom:14px}
+    .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+    .step:last-child{margin-bottom:0}
+    .step-num{background:#3b82f6;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;margin-top:1px}
+    .step-text{font-size:.85rem;color:#cbd5e1;line-height:1.4}
+    .step-text strong{color:#e2e8f0}
+    /* Próximos passos (pós conexão) */
+    .proximos{background:#0f172a;border-radius:12px;padding:20px;text-align:left;margin-top:16px}
+    .proximos h3{font-size:.78rem;text-transform:uppercase;color:#64748b;letter-spacing:.08em;margin-bottom:14px}
+    .proximo-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #1e293b}
+    .proximo-item:last-child{border-bottom:none;padding-bottom:0}
+    .proximo-item .icon{font-size:1.3rem;flex-shrink:0}
+    .proximo-item p{font-size:.83rem;color:#94a3b8;line-height:1.4}
+    .proximo-item strong{color:#e2e8f0;display:block;margin-bottom:2px}
+    /* Erro */
+    .erro-box{background:#450a0a;border-radius:10px;padding:16px;margin-top:16px}
+    .erro-box p{color:#fca5a5;font-size:.85rem}
+    /* Pulse */
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    .pulsing{animation:pulse 1.5s ease-in-out infinite}
   </style>
 </head>
 <body>
 <div class="card">
   <div class="logo">📱</div>
   <h1 id="nomeCliente">Conectar WhatsApp</h1>
-  <p id="subtitulo">Escaneie o QR code com o WhatsApp do número da campanha</p>
+  <p class="sub" id="subtitulo">Escaneie o QR code com o WhatsApp da campanha para começar</p>
 
   <div id="conteudo">
     <div class="spinner"></div>
+    <p style="color:#64748b;font-size:.82rem" class="pulsing">Carregando QR code…</p>
   </div>
 
-  <div class="instrucoes" id="instrucoes" style="display:none">
-    <h3>Como escanear:</h3>
-    <ol>
-      <li>Abra o WhatsApp no celular</li>
-      <li>Toque em <strong>Aparelhos conectados</strong></li>
-      <li>Toque em <strong>Conectar um aparelho</strong></li>
-      <li>Aponte a câmera para o QR code acima</li>
-    </ol>
+  <div id="instrucoes" style="display:none">
+    <div class="steps">
+      <h3>Como escanear</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Abra o <strong>WhatsApp</strong> no celular da campanha</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Toque nos <strong>três pontos (⋮)</strong> e escolha <strong>Aparelhos conectados</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Toque em <strong>Conectar um aparelho</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Aponte a câmera para o <strong>QR code</strong> acima</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="proxPassos" style="display:none">
+    <div class="proximos">
+      <h3>O que acontece agora</h3>
+      <div class="proximo-item">
+        <div class="icon">✅</div>
+        <p><strong>WhatsApp conectado</strong>O sistema já pode enviar matérias para os grupos da campanha automaticamente.</p>
+      </div>
+      <div class="proximo-item">
+        <div class="icon">📋</div>
+        <p><strong>Próximo passo</strong>O administrador irá configurar os grupos de distribuição e adicionar os assessores autorizados.</p>
+      </div>
+      <div class="proximo-item">
+        <div class="icon">🤖</div>
+        <p><strong>Bot Telegram</strong>Os assessores receberão um link para o bot Telegram. Basta enviar texto ou foto que a matéria é gerada e publicada automaticamente.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="erroBox" style="display:none">
+    <div class="erro-box">
+      <p id="erroMsg">Erro ao carregar. Tente recarregar a página.</p>
+    </div>
   </div>
 </div>
 
 <script>
 const token = location.pathname.split('/').pop();
+let tentativas = 0;
 
 async function verificar() {
   try {
-    const r = await fetch(`/api/whatsapp/qr/${token}`);
+    const r    = await fetch(`/api/whatsapp/qr/${token}`);
     const data = await r.json();
+
+    if (!r.ok) {
+      mostrarErro(data.erro || 'Link inválido ou expirado.');
+      return;
+    }
 
     document.getElementById('nomeCliente').textContent = data.nome || 'Conectar WhatsApp';
 
     if (data.status === 'conectado') {
-      document.getElementById('subtitulo').textContent = 'Número conectado com sucesso!';
+      document.getElementById('subtitulo').textContent = 'WhatsApp conectado com sucesso! ✅';
       document.getElementById('instrucoes').style.display = 'none';
       document.getElementById('conteudo').innerHTML = `
-        <div class="status-ok">
+        <div class="sucesso">
           <div class="icon">✅</div>
-          <strong>WhatsApp conectado!</strong><br>
-          <span style="font-size:0.85rem;color:#86efac">O sistema já pode enviar mensagens.</span>
+          <h2>WhatsApp conectado!</h2>
+          <p>O sistema já está pronto para enviar matérias automaticamente.</p>
         </div>`;
-      return; // Para de verificar
+      document.getElementById('proxPassos').style.display = 'block';
+      return; // Conectado — para o polling
     }
 
     if (data.qr) {
+      tentativas++;
       document.getElementById('instrucoes').style.display = 'block';
-      document.getElementById('conteudo').innerHTML = `<img src="${data.qr}" alt="QR Code WhatsApp">`;
+      document.getElementById('conteudo').innerHTML = `
+        <img src="${data.qr}" alt="QR Code WhatsApp">
+        <p style="color:#64748b;font-size:.78rem;margin-top:6px">QR code atualiza automaticamente (tentativa ${tentativas})</p>`;
+    } else {
+      document.getElementById('conteudo').innerHTML = `
+        <div class="spinner"></div>
+        <p style="color:#64748b;font-size:.82rem" class="pulsing">Aguardando QR code da instância…</p>`;
     }
 
-    // Verifica novamente em 5 segundos
     setTimeout(verificar, 5000);
   } catch {
-    setTimeout(verificar, 8000);
+    tentativas++;
+    if (tentativas < 20) {
+      setTimeout(verificar, 8000);
+    } else {
+      mostrarErro('Não foi possível conectar ao servidor após várias tentativas.');
+    }
   }
+}
+
+function mostrarErro(msg) {
+  document.getElementById('conteudo').innerHTML = '';
+  document.getElementById('erroMsg').textContent = msg;
+  document.getElementById('erroBox').style.display = 'block';
 }
 
 verificar();
