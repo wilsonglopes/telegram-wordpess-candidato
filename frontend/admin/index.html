@@ -209,9 +209,9 @@
             <input type="text" id="dWpUsuario">
           </div>
         </div>
-        <label>🔑 Chave do Plugin Portal Publisher <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado — habilita chapéu e resumo)</span></label>
-        <input type="text" id="dPluginKey" placeholder="Cole aqui a chave gerada pelo plugin no WP">
-        <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(fallback — deixe vazio se usar o plugin)</span></label>
+        <label>🔑 Chave do Plugin CampanhaPress <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado — habilita chapéu, resumo e imagem nas redes)</span></label>
+        <input type="text" id="dPluginKey" placeholder="Cole aqui a chave gerada no WP Admin → CampanhaPress">
+        <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(fallback — apenas se não usar o plugin)</span></label>
         <input type="text" id="dWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
         <label>Token do Bot Telegram</label>
         <input type="text" id="dBotToken" placeholder="1234567890:AABBcc...">
@@ -305,12 +305,15 @@
 
 <!-- MODAL: NOVO CANDIDATO -->
 <div class="overlay" id="novoOverlay" onclick="if(event.target===this)fecharNovo()">
-  <div class="drawer" style="max-width:600px">
+  <div class="drawer" style="max-width:620px">
     <div class="drawer-head">
       <h2>Novo Candidato</h2>
       <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">✕</button>
     </div>
     <div class="drawer-body" style="padding:var(--sp-6)">
+
+      <!-- Identificação -->
+      <div class="section-title" style="margin-top:0">Identificação</div>
       <div class="grid2">
         <div>
           <label>Nome do candidato *</label>
@@ -318,28 +321,53 @@
         </div>
         <div>
           <label>Slug único *</label>
-          <input type="text" id="nSlug" placeholder="ex: ze-milton">
+          <input type="text" id="nSlug" placeholder="ex: ze-milton" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'-')">
         </div>
       </div>
-      <div class="grid2">
-        <div>
-          <label>URL do WordPress *</label>
-          <input type="url" id="nWpUrl" placeholder="https://site.com.br">
+
+      <!-- WordPress -->
+      <div class="section-title">WordPress</div>
+      <label>URL do site *</label>
+      <input type="url" id="nWpUrl" placeholder="https://siteducandidato.com.br">
+
+      <label>🔑 Chave do Plugin CampanhaPress *</label>
+      <input type="text" id="nPluginKey" placeholder="Cole a chave gerada pelo plugin no WP Admin → CampanhaPress"
+             oninput="toggleWpCredenciais()">
+
+      <!-- Credenciais WP — visível apenas sem plugin -->
+      <div id="nWpCredBox" style="display:none">
+        <div style="background:var(--c-warning-bg);border-radius:var(--r-md);padding:10px 14px;margin-bottom:var(--sp-3);font-size:var(--text-xs);color:#fde68a">
+          ⚠️ Sem o plugin o chapéu editorial e a imagem nas redes sociais não funcionam.
+          Instale o <strong>campanhapress.zip</strong> no WP do candidato para a experiência completa.
         </div>
-        <div>
-          <label>Usuário WordPress *</label>
-          <input type="text" id="nWpUsuario" placeholder="admin">
+        <div class="grid2">
+          <div>
+            <label>Usuário WordPress</label>
+            <input type="text" id="nWpUsuario" placeholder="admin">
+          </div>
+          <div>
+            <label>Senha de Aplicativo WP</label>
+            <input type="text" id="nWpSenha" placeholder="xxxx xxxx xxxx xxxx">
+          </div>
         </div>
       </div>
-      <label>🔑 Chave do Plugin Portal Publisher <span style="color:var(--c-success);font-size:var(--text-xs)">(recomendado)</span></label>
-      <input type="text" id="nPluginKey" placeholder="Cole aqui a chave do plugin instalado no WP do candidato">
-      <label>Senha de Aplicativo WordPress <span style="color:var(--c-text-faint);font-size:var(--text-xs)">(obrigatória se não usar o plugin)</span></label>
-      <input type="text" id="nWpSenha" placeholder="xxxx xxxx xxxx xxxx xxxx xxxx">
-      <label>Token do Bot Telegram</label>
-      <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois">
+
+      <!-- Telegram -->
+      <div class="section-title">Telegram</div>
+      <label>Token do Bot</label>
+      <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois em Gerenciar → Dados">
+
+      <!-- Prompt -->
+      <div class="section-title">IA</div>
       <label>Prompt personalizado</label>
-      <textarea id="nPrompt" placeholder="Opcional — usa padrão se vazio"></textarea>
-      <div style="display:flex;gap:var(--sp-3);justify-content:flex-end;margin-top:var(--sp-2)">
+      <textarea id="nPrompt" placeholder="Opcional — deixe vazio para usar o padrão jornalístico"></textarea>
+
+      <!-- Nota redes sociais -->
+      <div style="background:var(--c-bg);border:1px solid var(--c-border);border-radius:var(--r-md);padding:10px 14px;margin-top:var(--sp-3);font-size:var(--text-xs);color:var(--c-text-faint)">
+        📣 <strong style="color:var(--c-text)">Facebook e Instagram</strong> — configure após criar o candidato em <strong style="color:var(--c-text)">Gerenciar → Redes Sociais</strong>
+      </div>
+
+      <div style="display:flex;gap:var(--sp-3);justify-content:flex-end;margin-top:var(--sp-5)">
         <button class="btn btn-ghost btn-sm" onclick="fecharNovo()">Cancelar</button>
         <button class="btn btn-primary btn-sm" onclick="criarCandidato()">Criar candidato</button>
       </div>
@@ -530,6 +558,11 @@ function copiarLink() {
   const link = document.getElementById('dQrLink').textContent;
   if (link === '—') return;
   navigator.clipboard.writeText(link).then(() => toast('Link copiado!'));
+}
+
+function toggleWpCredenciais() {
+  const temPlugin = document.getElementById('nPluginKey').value.trim().length > 0;
+  document.getElementById('nWpCredBox').style.display = temPlugin ? 'none' : 'block';
 }
 
 // ─── REDES SOCIAIS ───────────────────────────────────────────
