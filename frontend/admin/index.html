@@ -301,6 +301,28 @@
           No Graph API Explorer: <code>GET /{page-id}?fields=instagram_business_account</code>
         </p>
 
+        <div class="section-title">🎨 Card de imagem (1080×1080)</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="dGerarCard" style="width:auto;margin:0" checked>
+          Gerar card automático (foto + chapéu + título + logo) para as redes sociais
+        </label>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:0;margin-bottom:var(--sp-3)">
+          Desmarcado: envia a foto original sem edição. O WordPress sempre recebe a foto limpa.
+        </p>
+        <div class="grid2">
+          <div>
+            <label>URL do logo (PNG transparente)</label>
+            <input type="url" id="dLogoUrl" placeholder="https://site.com.br/logo.png">
+          </div>
+          <div>
+            <label>Cor da campanha</label>
+            <input type="color" id="dBrandColor" value="#f97316" style="height:42px;padding:4px">
+          </div>
+        </div>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-4px">
+          O logo aparece no canto inferior; a cor é usada na faixa do chapéu e no gradiente.
+        </p>
+
         <div class="drawer-footer">
           <div></div>
           <button class="btn btn-primary btn-sm" onclick="salvarRedes()">Salvar</button>
@@ -533,6 +555,9 @@ async function abrirDetalhe(id) {
     document.getElementById('dFbPageId').value      = c.fb_page_id       || '';
     document.getElementById('dFbToken').value       = c.fb_access_token  || '';
     document.getElementById('dIgUserId').value      = c.ig_user_id       || '';
+    document.getElementById('dLogoUrl').value       = c.logo_url         || '';
+    document.getElementById('dBrandColor').value    = c.brand_color      || '#f97316';
+    document.getElementById('dGerarCard').checked   = c.gerar_card !== false;
     toggleDadosWp();
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
@@ -627,6 +652,9 @@ async function salvarRedes() {
     fb_page_id:      document.getElementById('dFbPageId').value  || null,
     fb_access_token: document.getElementById('dFbToken').value   || null,
     ig_user_id:      document.getElementById('dIgUserId').value  || null,
+    logo_url:        document.getElementById('dLogoUrl').value   || null,
+    brand_color:     document.getElementById('dBrandColor').value || '#f97316',
+    gerar_card:      document.getElementById('dGerarCard').checked,
   };
   try {
     await api(`/clientes/${id}`, { method: 'PATCH', body });

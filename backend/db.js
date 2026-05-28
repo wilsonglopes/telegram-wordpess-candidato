@@ -71,6 +71,9 @@ async function migrate() {
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ig_user_id        TEXT`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS wp_post_format    TEXT NOT NULL DEFAULT 'editorial'`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS social_template   TEXT NOT NULL DEFAULT 'padrao'`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_url          TEXT`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS brand_color       TEXT NOT NULL DEFAULT '#f97316'`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gerar_card        BOOLEAN NOT NULL DEFAULT true`);
 
   // Torna wp_usuario e wp_senha nullable (plugin não precisa deles)
   await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);

@@ -3,12 +3,17 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios       = require('axios');
 const FormData    = require('form-data');
+const fs          = require('fs');
+const path        = require('path');
 const { query }         = require('./db');
 const { gerarMateria }  = require('./connectors/ai');
 const { publicarWP }    = require('./connectors/wordpress');
 const { enviarGrupos }  = require('./connectors/evolution');
 const { distribuirRedes } = require('./connectors/social');
+const { gerarImagemTemplate } = require('./utils/imageTemplate');
 const settings = require('./settings.json');
+
+const CARDS_DIR = path.join(__dirname, 'cards');
 
 const botsAtivos = new Map();
 
@@ -335,6 +340,28 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
   const publicados = ['✅ WordPress'];
   const erros = [];
 
+  // 1.5. Gera o card social (1080x1080 com chapéu + título + logo)
+  // WordPress fica com a foto limpa; redes sociais recebem o card brandado.
+  let imagemSocial = imagemPostada;
+  const querCard = cliente.gerar_card !== false;
+  if (querCard && imagemPostada && (canais.wa || canais.fb || canais.ig)) {
+    try {
+      const buffer = await gerarImagemTemplate({
+        imagemUrl:  imagemPostada,
+        chapeu:     materia.chapeu,
+        titulo:     materia.titulo,
+        logoUrl:    cliente.logo_url || null,
+        brandColor: cliente.brand_color || '#f97316',
+      });
+      const filename = `${cliente.slug}-${Date.now()}.jpg`;
+      fs.writeFileSync(path.join(CARDS_DIR, filename), buffer);
+      const base = (settings.base_url || '').replace(/\/$/, '');
+      imagemSocial = `${base}/cards/${filename}`;
+    } catch (err) {
+      console.warn(`[card] Falha ao gerar template: ${err.message} — usando foto original`);
+    }
+  }
+
   // 2. WhatsApp
   if (canais.wa) {
     try {
@@ -345,7 +372,7 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
         titulo:    materia.titulo,
         resumo:    materia.resumo,
         postUrl:   post.link,
-        imagemUrl: imagemPostada,
+        imagemUrl: imagemSocial,
         slug:      cliente.slug,
         template:  cliente.social_template || 'padrao',
       });
@@ -364,7 +391,7 @@ async function publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao) {
       titulo:    materia.titulo,
       resumo:    materia.resumo,
       postUrl:   post.link,
-      imagemUrl: imagemPostada,
+      imagemUrl: imagemSocial,
     });
     if (social.facebook)       publicados.push('📘 Facebook');
     if (social.instagram)      publicados.push('📸 Instagram');
