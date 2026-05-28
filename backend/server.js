@@ -2,7 +2,7 @@
 
 const express = require('express');
 const path    = require('path');
-const { migrate } = require('./db');
+const { migrate, query } = require('./db');
 const authRoutes     = require('./routes/auth');
 const clientesRoutes = require('./routes/clientes');
 const whatsappRoutes = require('./routes/whatsapp');
@@ -28,6 +28,9 @@ app.get('/admin*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/ad
 
 // Serve página de conexão QR (sem login)
 app.get('/conectar/:token', (_, res) => res.sendFile(path.join(__dirname, '../frontend/conectar/index.html')));
+
+// Redireciona raiz para o painel admin
+app.get('/', (_, res) => res.redirect('/admin'));
 
 async function monitorarWhatsApp() {
   try {
