@@ -343,10 +343,18 @@ function xmn_handle_publish( WP_REST_Request $request ) {
     // ── 6. Define imagem destacada (SEO / Open Graph) ─────────────────────────
     if ( $featured_id ) set_post_thumbnail( $post_id, $featured_id );
 
+    $img_url = '';
+    if ( $featured_id ) {
+        $img_url = wp_get_attachment_url( $featured_id ) ?: '';
+    } elseif ( $embedded_img ) {
+        $img_url = $embedded_img;
+    }
+
     return new WP_REST_Response( [
-        'success'  => true,
-        'post_id'  => $post_id,
-        'post_url' => get_permalink( $post_id ),
+        'success'           => true,
+        'post_id'           => $post_id,
+        'post_url'          => get_permalink( $post_id ),
+        'featured_image_url'=> $img_url,
     ], 201 );
 }
 

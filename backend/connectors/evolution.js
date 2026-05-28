@@ -51,25 +51,34 @@ async function listarGrupos(instancia) {
   return (r.data || []).map(g => ({ jid: g.id, nome: g.subject }));
 }
 
-// Envia mensagem para todos os grupos ativos do cliente
-async function enviarGrupos({ instancia, clienteId, titulo, postUrl }) {
+// Envia para todos os grupos ativos — com imagem se disponível, texto simples se não
+async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, imagemUrl }) {
   const { rows: grupos } = await query(
     `SELECT group_jid, nome FROM grupos_whatsapp WHERE cliente_id = $1 AND ativo = true`,
     [clienteId]
   );
-
   if (grupos.length === 0) return;
 
-  const mensagem = `🗞️ *${titulo}*\n\n🔗 Leia a matéria completa:\n${postUrl}`;
+  const legenda = `🗞️ *${titulo}*${resumo ? `\n\n${resumo}` : ''}\n\n🔗 ${postUrl}`;
 
   for (const grupo of grupos) {
     try {
-      await axios.post(`${BASE()}/message/sendText/${instancia}`, {
-        number: grupo.group_jid,
-        text:   mensagem,
-      }, { headers: headers(), timeout: 15000 });
+      if (imagemUrl) {
+        await axios.post(`${BASE()}/message/sendMedia/${instancia}`, {
+          number:    grupo.group_jid,
+          mediatype: 'image',
+          mimetype:  'image/jpeg',
+          caption:   legenda,
+          media:     imagemUrl,
+        }, { headers: headers(), timeout: 30000 });
+      } else {
+        await axios.post(`${BASE()}/message/sendText/${instancia}`, {
+          number: grupo.group_jid,
+          text:   legenda,
+        }, { headers: headers(), timeout: 15000 });
+      }
     } catch (err) {
-      console.warn(`[evolution] Falha ao enviar para grupo ${grupo.nome}:`, err.message);
+      console.warn(`[evolution] Falha no grupo ${grupo.nome}:`, err.message);
     }
   }
 }

@@ -65,10 +65,10 @@ async function migrate() {
     )
   `);
 
-  // Adiciona wp_plugin_key se ainda não existir (idempotente)
-  await query(`
-    ALTER TABLE clientes ADD COLUMN IF NOT EXISTS wp_plugin_key TEXT
-  `);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS wp_plugin_key     TEXT`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fb_page_id        TEXT`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fb_access_token   TEXT`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS ig_user_id        TEXT`);
 
   // Torna wp_usuario e wp_senha nullable (plugin não precisa deles)
   await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);

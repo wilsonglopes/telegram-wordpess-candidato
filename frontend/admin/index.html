@@ -179,6 +179,7 @@
     </div>
     <div class="tabs" id="tabsBar">
       <button class="tab-btn active" onclick="trocarTab('dados')">⚙️ Dados</button>
+      <button class="tab-btn" onclick="trocarTab('redes')">📣 Redes Sociais</button>
       <button class="tab-btn" onclick="trocarTab('assessores')">👥 Assessores</button>
       <button class="tab-btn" onclick="trocarTab('whatsapp')">📱 WhatsApp</button>
       <button class="tab-btn" onclick="trocarTab('publicacoes')">📰 Publicações</button>
@@ -228,6 +229,33 @@
             <button class="btn btn-ghost btn-sm" onclick="fecharDrawer()">Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="salvarDados()">Salvar alterações</button>
           </div>
+        </div>
+      </div>
+
+      <!-- ABA: REDES SOCIAIS -->
+      <div class="tab-pane" id="tab-redes">
+        <div class="section-title">Facebook</div>
+        <div class="list-item" style="flex-direction:column;align-items:stretch;gap:0">
+          <label>ID da Página</label>
+          <input type="text" id="dFbPageId" placeholder="Ex: 123456789012345">
+          <label>Token de Acesso da Página (Page Access Token)</label>
+          <input type="text" id="dFbToken" placeholder="EAABsb...">
+          <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-8px">
+            Obtenha em <strong>developers.facebook.com</strong> → seu app → Graph API Explorer → gere token para a página com permissões <code>pages_manage_posts</code> e <code>pages_read_engagement</code>.
+          </p>
+        </div>
+
+        <div class="section-title" style="margin-top:var(--sp-5)">Instagram</div>
+        <div class="list-item" style="flex-direction:column;align-items:stretch;gap:0">
+          <label>ID da Conta Instagram Business</label>
+          <input type="text" id="dIgUserId" placeholder="Ex: 987654321012345">
+          <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-8px">
+            Obtenha em Graph API Explorer: <code>GET /{page-id}?fields=instagram_business_account</code>. O Instagram deve estar conectado à página do Facebook.
+          </p>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:var(--sp-5)">
+          <button class="btn btn-primary btn-sm" onclick="salvarRedes()">Salvar configurações</button>
         </div>
       </div>
 
@@ -426,6 +454,9 @@ async function abrirDetalhe(id) {
     document.getElementById('dWpUsuario').value = c.wp_usuario|| '';
     document.getElementById('dWpSenha').value   = '';
     document.getElementById('dPluginKey').value = c.wp_plugin_key      || '';
+    document.getElementById('dFbPageId').value  = c.fb_page_id         || '';
+    document.getElementById('dFbToken').value   = c.fb_access_token    || '';
+    document.getElementById('dIgUserId').value  = c.ig_user_id         || '';
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
@@ -449,12 +480,13 @@ function fecharDrawer() {
 
 function trocarTab(nome) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const abas = ['dados','assessores','whatsapp','publicacoes'];
+    const abas = ['dados','redes','assessores','whatsapp','publicacoes'];
     b.classList.toggle('active', abas[i] === nome);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + nome).classList.add('active');
   if (nome === 'assessores')  carregarAssessores();
+  if (nome === 'redes')       { /* campos já carregados no abrirDetalhe */ }
   if (nome === 'whatsapp')    carregarWhatsapp();
   if (nome === 'publicacoes') carregarPublicacoes();
 }
@@ -498,6 +530,20 @@ function copiarLink() {
   const link = document.getElementById('dQrLink').textContent;
   if (link === '—') return;
   navigator.clipboard.writeText(link).then(() => toast('Link copiado!'));
+}
+
+// ─── REDES SOCIAIS ───────────────────────────────────────────
+async function salvarRedes() {
+  const id = document.getElementById('dId').value;
+  const body = {
+    fb_page_id:      document.getElementById('dFbPageId').value  || null,
+    fb_access_token: document.getElementById('dFbToken').value   || null,
+    ig_user_id:      document.getElementById('dIgUserId').value  || null,
+  };
+  try {
+    await api(`/clientes/${id}`, { method: 'PATCH', body });
+    toast('Configurações de redes sociais salvas!');
+  } catch(err) { toast('Erro: ' + err.message, true); }
 }
 
 // ─── ASSESSORES ───────────────────────────────────────────

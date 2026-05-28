@@ -6,7 +6,8 @@ const FormData    = require('form-data');
 const { query }   = require('./db');
 const { gerarMateria } = require('./connectors/ai');
 const { publicarWP }   = require('./connectors/wordpress');
-const { enviarGrupos } = require('./connectors/evolution');
+const { enviarGrupos }    = require('./connectors/evolution');
+const { distribuirRedes } = require('./connectors/social');
 const settings = require('./settings.json');
 
 // Mapa de bots ativos: clienteId → TelegramBot instance
@@ -151,16 +152,42 @@ async function processarConteudo(bot, cliente, chatId, texto, imagemUrl) {
     );
   }
 
-  await enviarGrupos({ instancia: cliente.evolution_instancia, clienteId: cliente.id, titulo: materia.titulo, postUrl: post.link });
+  const imagemPostada = post.imagemUrl || null;
+
+  // WhatsApp — imagem + resumo + link
+  await enviarGrupos({
+    instancia: cliente.evolution_instancia,
+    clienteId: cliente.id,
+    titulo:    materia.titulo,
+    resumo:    materia.resumo,
+    postUrl:   post.link,
+    imagemUrl: imagemPostada,
+  });
+
+  // Facebook + Instagram
+  const social = await distribuirRedes(cliente, {
+    chapeu:    materia.chapeu,
+    titulo:    materia.titulo,
+    resumo:    materia.resumo,
+    postUrl:   post.link,
+    imagemUrl: imagemPostada,
+  });
 
   await query(
     `INSERT INTO publicacoes (cliente_id, titulo, wp_post_url, status) VALUES ($1, $2, $3, 'publicado')`,
     [cliente.id, materia.titulo, post.link]
   );
 
+  if (social.facebook_erro)  console.warn(`[bot:${cliente.slug}] FB erro: ${social.facebook_erro}`);
+  if (social.instagram_erro) console.warn(`[bot:${cliente.slug}] IG erro: ${social.instagram_erro}`);
+
   const chapeuTexto = materia.chapeu ? `🏷️ _${materia.chapeu}_\n` : '';
+  const canais = ['✅ WordPress', '📱 WhatsApp'];
+  if (social.facebook)  canais.push('📘 Facebook');
+  if (social.instagram) canais.push('📸 Instagram');
+
   await bot.sendMessage(chatId,
-    `✅ *Publicado!*\n\n${chapeuTexto}📰 *${materia.titulo}*\n\n🔗 ${post.link}`,
+    `✅ *Publicado em ${canais.length} canal(is)!*\n\n${chapeuTexto}📰 *${materia.titulo}*\n\n🔗 ${post.link}\n\n_${canais.join(' · ')}_`,
     { parse_mode: 'Markdown' }
   );
 }

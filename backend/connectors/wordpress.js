@@ -30,7 +30,11 @@ async function publicarComPlugin({ wp_url, wp_plugin_key, chapeu, titulo, resumo
 
   const url = r.data?.post_url;
   if (!url) throw new Error('Plugin não retornou URL do post');
-  return { id: r.data.post_id, link: url };
+  return {
+    id:        r.data.post_id,
+    link:      url,
+    imagemUrl: r.data.featured_image_url || null,
+  };
 }
 
 /**
@@ -68,7 +72,7 @@ async function publicarComAppPassword({ wp_url, wp_usuario, wp_senha, titulo, co
   });
 
   if (!r.data?.link) throw new Error('WordPress não retornou URL do post');
-  return { id: r.data.id, link: r.data.link };
+  return { id: r.data.id, link: r.data.link, imagemUrl: null };
 }
 
 /**
