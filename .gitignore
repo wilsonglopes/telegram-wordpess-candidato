@@ -3,3 +3,5 @@ node_modules/
 settings.json
 *.log
 .DS_Store
+*.key
+*.pem
