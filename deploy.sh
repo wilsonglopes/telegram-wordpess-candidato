@@ -7,7 +7,7 @@ PM2_NAME="plataforma-candidatos"
 echo "=== Deploy Plataforma Candidatos ==="
 
 cd $APP_DIR
-git pull origin main
+git pull origin master
 
 cd backend
 npm install --omit=dev

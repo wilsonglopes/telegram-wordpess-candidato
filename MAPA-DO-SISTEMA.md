@@ -74,7 +74,7 @@ publicacoes           -- histórico de matérias publicadas
 | Serviço | Porta | Status |
 |---|---|---|
 | Evolution API | 8080 (interno) | ⚠️ Ainda não instalado |
-| Redis | 6379 (localhost) | ⚠️ Ainda não instalado |
+| Redis | — | ❌ Não usado pelo código (remover das pendências) |
 | PostgreSQL | 5432 (localhost) | ✅ Já existe |
 
 ---
@@ -225,12 +225,13 @@ server {
 
 | # | O que falta | Onde fazer |
 |---|---|---|
-| 1 | Instalar Redis no servidor | SSH → `sudo apt install redis` |
-| 2 | Instalar Evolution API | SSH → clone + npm install + PM2 |
-| 3 | Criar banco PostgreSQL `candidatos` | SSH → `createdb candidatos` |
-| 4 | Configurar nginx + SSL | SSH → sites-available |
-| 5 | Configurar `settings.json` no servidor | SSH → editar após deploy |
-| 6 | Primeiro deploy | `bash deploy.sh` após autorização |
+| 1 | Instalar Evolution API | SSH → clone + npm install + PM2 (porta 8080) |
+| 2 | Criar banco PostgreSQL `candidatos` | SSH → `createdb candidatos` |
+| 3 | Configurar nginx + SSL | SSH → sites-available (não alterar configs existentes) |
+| 4 | Configurar `settings.json` no servidor | SSH → editar após clone |
+| 5 | Primeiro deploy | `bash deploy.sh` após autorização |
+
+> ⚠️ Redis **não é necessário** — o código não o utiliza. A dependência foi removida da lista.
 
 ---
 
