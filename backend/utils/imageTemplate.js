@@ -93,7 +93,7 @@ async function gerarImagemTemplate({ imagemUrl, chapeu, titulo, logoUrl, brandCo
     .jpeg({ quality: 90 })
     .toBuffer();
 
-  // 4. Adiciona logo do candidato (canto inferior esquerdo), se disponível
+  // 4. Adiciona logo do candidato (canto inferior direito), se disponível
   if (logoUrl) {
     try {
       const logoResp = await axios.get(logoUrl, { responseType: 'arraybuffer', timeout: 15000 });
@@ -101,8 +101,10 @@ async function gerarImagemTemplate({ imagemUrl, chapeu, titulo, logoUrl, brandCo
         .resize(180, 80, { fit: 'inside', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png()
         .toBuffer();
+      const { width: logoW, height: logoH } = await sharp(logoBuffer).metadata();
+      const margin = 40;
       const logoBuf = await sharp(resultado)
-        .composite([{ input: logoBuffer, gravity: 'southwest', left: 40, top: 0 }])
+        .composite([{ input: logoBuffer, left: 1080 - logoW - margin, top: 1080 - logoH - margin }])
         .jpeg({ quality: 90 })
         .toBuffer();
       return logoBuf;
