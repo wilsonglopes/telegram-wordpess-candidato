@@ -519,7 +519,7 @@ async function carregarClientes() {
     document.getElementById('statTotal').textContent      = clientes.length;
     document.getElementById('statAtivos').textContent     = clientes.filter(c => c.ativo).length;
     document.getElementById('statConectados').textContent = clientes.filter(c => c.whatsapp_status === 'conectado').length;
-    document.getElementById('statBots').textContent       = clientes.filter(c => c.telegram_bot_token).length;
+    document.getElementById('statBots').textContent       = clientes.filter(c => c.tem_bot).length;
 
     const tbody = document.getElementById('tabelaClientes');
     if (!clientes.length) {
@@ -538,8 +538,8 @@ async function carregarClientes() {
           </a>
         </td>
         <td>
-          <span class="badge ${c.telegram_bot_token ? 'ativo' : 'inativo'}">
-            ${c.telegram_bot_token ? 'Ativo' : 'Sem token'}
+          <span class="badge ${c.tem_bot ? 'ativo' : 'inativo'}">
+            ${c.tem_bot ? 'Ativo' : 'Sem token'}
           </span>
         </td>
         <td><span class="badge ${c.whatsapp_status}">${esc(c.whatsapp_status)}</span></td>

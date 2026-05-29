@@ -12,7 +12,11 @@ router.use(authMiddleware);
 // Lista todos os clientes
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await query(`SELECT id, nome, slug, wp_url, whatsapp_status, ativo, criado_em FROM clientes ORDER BY criado_em DESC`);
+    const { rows } = await query(`
+      SELECT id, nome, slug, wp_url, whatsapp_status, ativo, criado_em,
+        (telegram_bot_token IS NOT NULL AND telegram_bot_token != '') AS tem_bot
+      FROM clientes ORDER BY criado_em DESC
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ erro: err.message });
