@@ -30,14 +30,19 @@ async function obterQRCode(instancia) {
 }
 
 // Retorna status da conexão: open / close / connecting
+// Evolution API v2 retorna { name, connectionStatus } no nível raiz.
+// (a v1 usava { instance: { instanceName, state } } — mantido como fallback)
 async function statusConexao(instancia) {
   try {
     const r = await axios.get(`${BASE()}/instance/fetchInstances`, {
       headers: headers(),
       timeout: 10000,
     });
-    const inst = (r.data || []).find(i => i.instance?.instanceName === instancia);
-    return inst?.instance?.state || 'desconhecido';
+    const lista = r.data || [];
+    const inst = lista.find(i =>
+      i.name === instancia || i.instance?.instanceName === instancia
+    );
+    return inst?.connectionStatus || inst?.instance?.state || 'desconhecido';
   } catch {
     return 'erro';
   }
