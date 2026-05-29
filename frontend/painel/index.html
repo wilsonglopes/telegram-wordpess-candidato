@@ -323,32 +323,76 @@
         </div>
       </div>
 
-      <details class="tutorial">
-        <summary>Como obter o Token do Facebook e ID do Instagram</summary>
+      <details class="tutorial" open>
+        <summary>Como obter o Token do Facebook e ID do Instagram (passo a passo completo)</summary>
         <div class="tutorial-body">
-          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--sp-2)">Parte 1 — Preparação</p>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:var(--sp-2)">Parte 1 — Criar o aplicativo Facebook</p>
           <ol class="tutorial-steps">
-            <li><p>Acesse <strong>developers.facebook.com</strong> e faça login com sua conta pessoal.</p></li>
-            <li><p>Clique em <strong>Meus Apps → Criar App</strong>. Tipo: <strong>"Outro"</strong> → <strong>"Business"</strong>. Dê um nome qualquer.</p></li>
-            <li><p>No app criado, vá em <strong>Adicionar Produtos</strong> e adicione <strong>Instagram Graph API</strong> e <strong>Facebook Login</strong>.</p></li>
+            <li><p>Acesse <strong>developers.facebook.com</strong> e faça login com a conta pessoal do Facebook vinculada à sua Página.</p></li>
+            <li><p>Clique em <strong>Meus Apps → Criar App</strong>. Escolha o caso de uso <strong>"Gerenciamento de conteúdo"</strong> e clique em <strong>Avançar</strong>.</p></li>
+            <li><p>Dê um nome ao aplicativo (qualquer nome serve) e clique em <strong>Criar app</strong>.</p></li>
           </ol>
-          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-4) 0 var(--sp-2)">Parte 2 — Page Access Token</p>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 2 — Configurar permissões do Instagram</p>
           <ol class="tutorial-steps">
-            <li><p>Acesse o <strong>Graph API Explorer</strong>: <code>developers.facebook.com/tools/explorer</code></p></li>
-            <li><p>Selecione seu App. Adicione as permissões: <code>pages_manage_posts</code>, <code>pages_read_engagement</code>, <code>pages_show_list</code>, <code>instagram_basic</code>, <code>instagram_content_publish</code>.</p></li>
-            <li><p>Clique em <strong>Gerar token de acesso</strong> e autorize.</p></li>
-            <li><p><strong>Importante:</strong> no dropdown "Usuário ou Página", troque para o nome da sua <strong>Página</strong> (não "Token do usuário").</p></li>
-            <li><p>Confirme com <code>GET /me?fields=name,id</code> — o resultado deve mostrar o nome da <strong>página</strong>, não o seu nome pessoal.</p></li>
-            <li><p>Copie o token e cole no campo acima.</p></li>
+            <li><p>Dentro do app criado, clique em <strong>Casos de uso</strong> no menu lateral esquerdo.</p></li>
+            <li><p>Localize <strong>"Gerenciar mensagens e conteúdo do Instagram"</strong> e clique em <strong>Personalizar</strong>.</p></li>
+            <li><p>Clique em <strong>Permissões e recursos</strong>. Vai abrir a lista de permissões disponíveis.</p></li>
+            <li><p>Encontre <strong>instagram_basic</strong> e clique no botão <strong>+</strong> ao lado para adicionar.</p></li>
+            <li><p>Encontre <strong>instagram_content_publishing</strong> e clique no botão <strong>+</strong> para adicionar também.</p></li>
+            <li><p>Clique em <strong>Voltar</strong> para retornar à tela de Casos de uso.</p></li>
           </ol>
-          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-4) 0 var(--sp-2)">Parte 3 — ID do Instagram Business</p>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 3 — Configurar permissões do Facebook</p>
           <ol class="tutorial-steps">
-            <li><p>No Graph API Explorer, com o token gerado, faça: <code>GET /me/accounts</code>.</p></li>
-            <li><p>Copie o <code>id</code> da sua página na resposta.</p></li>
-            <li><p>Faça: <code>GET /{id-da-pagina}?fields=instagram_business_account</code>.</p></li>
-            <li><p>O campo <code>instagram_business_account.id</code> é o seu <strong>ID do Instagram Business</strong>.</p></li>
+            <li><p>Ainda em <strong>Casos de uso</strong>, localize <strong>"Gerenciar tudo na sua página"</strong> e clique em <strong>Personalizar</strong>.</p></li>
+            <li><p>Clique em <strong>Permissões e recursos</strong>.</p></li>
+            <li><p>Encontre <strong>pages_manage_posts</strong> e clique em <strong>+</strong> para adicionar.</p></li>
+            <li><p>Encontre <strong>pages_read_engagement</strong> e clique em <strong>+</strong> para adicionar.</p></li>
+            <li><p>A permissão <strong>pages_show_list</strong> provavelmente já está marcada — se não estiver, adicione também.</p></li>
+            <li><p>Clique em <strong>Voltar</strong>.</p></li>
           </ol>
-          <div class="tutorial-note">⚠️ O token do Explorer dura 1-2 horas. Para uso permanente, solicite ao administrador configurar um token de longa duração.</div>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 4 — Gerar o token inicial no Explorador de API</p>
+          <ol class="tutorial-steps">
+            <li><p>No menu superior do Facebook for Developers, clique em <strong>Ferramentas → Explorador de API do Gráfico</strong>.</p></li>
+            <li><p>No campo <strong>"Usuário ou Página"</strong>, clique e selecione <strong>"Acesso a uma Página"</strong>. Se a sua página não aparecer, clique em "Adicionar uma página" e autorize.</p></li>
+            <li><p>Clique em <strong>Gerar token</strong>. O Facebook vai pedir login e aprovação das permissões — autorize tudo.</p></li>
+            <li><p>Um token vai aparecer no campo <strong>"Token de acesso"</strong>. Copie esse token.</p></li>
+          </ol>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 5 — Estender o token para longa duração</p>
+          <ol class="tutorial-steps">
+            <li><p><strong>Abra uma nova aba</strong> no navegador e acesse o <strong>Depurador de Token de Acesso</strong>: <code>developers.facebook.com/tools/debug</code></p></li>
+            <li><p>Cole o token copiado no campo de texto e clique em <strong>Depurar</strong>.</p></li>
+            <li><p>Verifique o campo <strong>"Expires"</strong> — o token provavelmente expira em poucas horas.</p></li>
+            <li><p>Role a página até o final e clique em <strong>"Estender token de acesso"</strong>. O Facebook vai pedir autenticação novamente.</p></li>
+            <li><p>Após autenticar, um novo token aparecerá em verde na tela. <strong>Copie esse novo token.</strong></p></li>
+          </ol>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 6 — Obter o token permanente da Página</p>
+          <ol class="tutorial-steps">
+            <li><p>Volte para a aba do <strong>Explorador de API do Gráfico</strong> (que está aberta desde a Parte 4).</p></li>
+            <li><p>No campo <strong>"Token de acesso"</strong>, apague o token antigo e cole o token verde obtido na Parte 5.</p></li>
+            <li><p>No <strong>campo de endpoint</strong> (a barra ao lado do botão <strong>Enviar</strong>), apague o que estiver escrito e digite exatamente: <code>me/accounts?fields=name,access_token</code></p></li>
+            <li><p>Clique em <strong>Enviar</strong>. Vai aparecer uma resposta com o nome da sua Página e um campo <code>access_token</code>.</p></li>
+            <li><p>Copie o valor do campo <code>access_token</code> da resposta — esse é o <strong>token permanente da Página</strong>, que não expira.</p></li>
+            <li><p>Cole esse token no campo <strong>"Token de Acesso da Página"</strong> acima e clique em <strong>Salvar Facebook & Instagram</strong>.</p></li>
+          </ol>
+
+          <p style="font-size:var(--text-xs);font-weight:700;color:var(--c-text-faint);text-transform:uppercase;letter-spacing:.06em;margin:var(--sp-5) 0 var(--sp-2)">Parte 7 — Obter o ID do Instagram Business</p>
+          <ol class="tutorial-steps">
+            <li><p>Ainda no Explorador de API, com o token permanente colado, no campo de endpoint digite: <code>me?fields=instagram_business_account</code></p></li>
+            <li><p>Clique em <strong>Enviar</strong>. A resposta trará um campo <code>instagram_business_account</code> com um <code>id</code>.</p></li>
+            <li><p>Copie esse <code>id</code> e cole no campo <strong>"ID do Usuário Instagram Business"</strong> acima.</p></li>
+            <li><p>Clique em <strong>Salvar Facebook & Instagram</strong>.</p></li>
+          </ol>
+
+          <div class="tutorial-note">
+            ⚠️ <strong>Atenção:</strong> o token da Parte 4 expira em horas — só o token obtido na <strong>Parte 6</strong> (via <code>me/accounts</code>) é permanente e deve ser usado aqui. Se o Facebook parar de publicar, o primeiro suspeito é sempre um token expirado.
+          </div>
+
         </div>
       </details>
 
