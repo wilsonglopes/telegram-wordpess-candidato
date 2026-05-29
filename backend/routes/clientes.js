@@ -88,9 +88,12 @@ router.patch('/:id', async (req, res) => {
         values.push(req.body[campo]);
       }
     }
-    if (updates.length === 0) return res.status(400).json({ erro: 'Nada para atualizar' });
-    values.push(req.params.id);
-    await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
+    const temCredenciais = req.body.user_email !== undefined || !!req.body.user_senha_raw;
+    if (updates.length === 0 && !temCredenciais) return res.status(400).json({ erro: 'Nada para atualizar' });
+    if (updates.length > 0) {
+      values.push(req.params.id);
+      await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
+    }
 
     // Hot-reload: reinicia o bot se o token Telegram mudou
     if (req.body.telegram_bot_token !== undefined) {
