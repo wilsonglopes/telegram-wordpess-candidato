@@ -350,8 +350,27 @@
             <div class="label">Status da conexão</div>
             <div id="waStatusBadge" style="margin-top:var(--sp-1)"><span class="badge pendente">pendente</span></div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()">⟳ Atualizar</button>
+          <div style="display:flex;gap:var(--sp-2)">
+            <button class="btn btn-wa btn-sm" id="btnConectarWA" onclick="conectarWA()">📱 Conectar / Gerar QR</button>
+            <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()">⟳ Atualizar</button>
+          </div>
         </div>
+
+        <!-- Área do QR Code (inline) -->
+        <div id="qrArea" style="display:none;text-align:center;background:var(--c-bg);border-radius:var(--r-lg);padding:var(--sp-5);margin-bottom:var(--sp-4);border:1px solid var(--c-border)">
+          <div id="qrContent">
+            <div class="spin" style="font-size:2rem">⟳</div>
+            <p style="color:var(--c-text-faint);font-size:var(--text-sm);margin-top:var(--sp-2)">Gerando QR Code…</p>
+          </div>
+          <ol style="text-align:left;max-width:380px;margin:var(--sp-4) auto 0;color:var(--c-text-muted);font-size:var(--text-xs);line-height:1.9">
+            <li>Abra o WhatsApp da campanha no celular</li>
+            <li>Toque em <b>⋮ → Aparelhos conectados</b></li>
+            <li>Toque em <b>Conectar um aparelho</b></li>
+            <li>Aponte a câmera para o QR Code acima</li>
+          </ol>
+          <button class="btn btn-ghost btn-sm" onclick="pararQR()" style="margin-top:var(--sp-3)">Fechar QR</button>
+        </div>
+
         <div class="section-title">Grupos ativos</div>
         <div id="listaGrupos"><div class="empty-state">Nenhum grupo salvo. Sincronize e adicione abaixo.</div></div>
         <div class="section-title">Grupos disponíveis na instância</div>
@@ -449,8 +468,10 @@
 const API = '/api';
 let TOKEN = localStorage.getItem('admin_token') || '';
 let clienteAtual = null;
+let clienteTokenQr = null;
 let gruposSalvos = [];
 let gruposDisp   = [];
+let qrTimer      = null;
 
 // ─── API HELPER ───────────────────────────────────────────
 async function api(path, opts = {}) {
@@ -563,6 +584,7 @@ async function abrirDetalhe(id) {
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
     const base = window.location.origin;
+    clienteTokenQr = c.token_qr || null;
     const link = c.token_qr ? `${base}/conectar/${c.token_qr}` : '—';
     document.getElementById('dQrLink').textContent = link;
     document.getElementById('dQrLinkHref').href    = link;
@@ -575,6 +597,7 @@ async function abrirDetalhe(id) {
 }
 
 function fecharDrawer() {
+  pararQR();
   document.getElementById('drawerOverlay').classList.remove('open');
   clienteAtual = null;
   carregarClientes();
@@ -704,7 +727,51 @@ async function removerAssessor(aid) {
 
 // ─── WHATSAPP ─────────────────────────────────────────────
 async function carregarWhatsapp() {
+  pararQR(); // ao reabrir a aba, garante que não há polling antigo
   await Promise.all([carregarGruposSalvos(), atualizarStatusWA()]);
+}
+
+// Mostra o QR inline e fica verificando até conectar
+async function conectarWA() {
+  if (!clienteTokenQr) return toast('Token de conexão não encontrado', true);
+  document.getElementById('qrArea').style.display = 'block';
+  document.getElementById('btnConectarWA').disabled = true;
+  await pollQR();
+}
+
+async function pollQR() {
+  const content = document.getElementById('qrContent');
+  try {
+    const data = await fetch(`/api/whatsapp/qr/${clienteTokenQr}`).then(r => r.json());
+
+    if (data.status === 'conectado') {
+      content.innerHTML = `
+        <div style="font-size:2.5rem">✅</div>
+        <p style="color:var(--c-success);font-weight:600;margin-top:8px">WhatsApp conectado!</p>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:4px">Já pode sincronizar os grupos abaixo.</p>`;
+      document.getElementById('btnConectarWA').disabled = false;
+      atualizarStatusWA();
+      pararQR();
+      return;
+    }
+
+    if (data.qr) {
+      content.innerHTML = `<img src="${data.qr}" alt="QR Code" style="width:240px;height:240px;border-radius:10px;border:4px solid var(--c-primary)">`;
+    } else {
+      content.innerHTML = `<div class="spin" style="font-size:2rem">⟳</div><p style="color:var(--c-text-faint);font-size:var(--text-sm);margin-top:8px">Aguardando QR da instância…</p>`;
+    }
+    qrTimer = setTimeout(pollQR, 5000); // QR expira — atualiza a cada 5s
+  } catch {
+    qrTimer = setTimeout(pollQR, 8000);
+  }
+}
+
+function pararQR() {
+  if (qrTimer) { clearTimeout(qrTimer); qrTimer = null; }
+  const area = document.getElementById('qrArea');
+  if (area) area.style.display = 'none';
+  const btn = document.getElementById('btnConectarWA');
+  if (btn) btn.disabled = false;
 }
 
 async function atualizarStatusWA() {
