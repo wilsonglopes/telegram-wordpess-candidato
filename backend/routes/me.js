@@ -1,9 +1,12 @@
 'use strict';
 
 const express = require('express');
+const axios   = require('axios');
 const { query }              = require('../db');
 const { authUserMiddleware } = require('./auth');
 const { obterQRCode, statusConexao, listarGrupos } = require('../connectors/evolution');
+
+const GRAPH = 'https://graph.facebook.com/v19.0';
 
 const router = express.Router();
 router.use(authUserMiddleware);
@@ -48,6 +51,52 @@ router.patch('/', async (req, res) => {
     await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ── FACEBOOK & INSTAGRAM — CONECTAR AUTOMATICAMENTE ───────────────────────────
+
+router.post('/social/conectar', async (req, res) => {
+  const { fb_access_token } = req.body;
+  if (!fb_access_token) return res.status(400).json({ erro: 'Token obrigatório' });
+
+  try {
+    // Com um Page Access Token, /me retorna a própria página + conta IG vinculada
+    const r = await axios.get(`${GRAPH}/me`, {
+      params: {
+        fields: 'id,name,instagram_business_account',
+        access_token: fb_access_token,
+      },
+      timeout: 15000,
+    });
+
+    const { id: fb_page_id, name: pagina, instagram_business_account } = r.data;
+    if (!fb_page_id) return res.status(400).json({ erro: 'Token inválido ou sem acesso a páginas' });
+
+    const ig_user_id = instagram_business_account?.id || null;
+
+    await query(
+      `UPDATE clientes SET fb_access_token = $1, fb_page_id = $2, ig_user_id = $3 WHERE id = $4`,
+      [fb_access_token, fb_page_id, ig_user_id, req.clienteId]
+    );
+
+    res.json({
+      ok: true,
+      pagina,
+      fb_page_id,
+      ig_user_id,
+      instagram: !!ig_user_id,
+    });
+  } catch (err) {
+    const fbErr = err.response?.data?.error;
+    if (fbErr) {
+      const code = fbErr.code;
+      const msg = code === 190
+        ? 'Token expirado ou inválido. Siga o tutorial para gerar um novo token.'
+        : (fbErr.message || 'Erro da API do Facebook');
+      return res.status(400).json({ erro: msg });
+    }
     res.status(500).json({ erro: err.message });
   }
 });
