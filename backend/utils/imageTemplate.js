@@ -17,7 +17,7 @@ function quebrarTexto(texto, maxChars = 30) {
     }
   }
   if (linha) linhas.push(linha.trim());
-  return linhas.slice(0, 3); // máximo 3 linhas
+  return linhas.slice(0, 4); // máximo 4 linhas
 }
 
 function hexToRgb(hex) {
@@ -46,14 +46,20 @@ async function gerarImagemTemplate({ imagemUrl, chapeu, titulo, logoUrl, brandCo
   // 2. Monta SVG overlay
   const { r, g, b } = hexToRgb(brandColor);
   const linhasTitulo = quebrarTexto(titulo, 28);
-  const alturaBadge = 60;
-  const alturaTexto = linhasTitulo.length * 70;
-  const alturaOverlay = alturaBadge + alturaTexto + 80;
+
+  const alturaBadge   = 60;   // altura da faixa do chapéu
+  const gapBadgeTitulo = 50;  // respiro entre o chapéu e a 1ª linha do título
+  const lineHeight    = 70;   // espaçamento entre linhas do título
+  const margemInferior = 56;  // respiro abaixo da última linha
+
+  // baseline da 1ª linha do título, medido a partir do topo do badge (yBase)
+  const primeiraBaseline = alturaBadge + gapBadgeTitulo + 50;
+  const alturaOverlay = primeiraBaseline + (linhasTitulo.length - 1) * lineHeight + margemInferior;
   const yBase = 1080 - alturaOverlay - 40;
   const larguraBadge = Math.min(chapeu.length * 26 + 48, 600);
 
   let linhasYSvg = linhasTitulo.map((linha, i) =>
-    `<text x="56" y="${yBase + alturaBadge + 24 + (i * 70)}"
+    `<text x="56" y="${yBase + primeiraBaseline + (i * lineHeight)}"
       font-family="'Arial Black', Arial, sans-serif"
       font-size="58" font-weight="900" fill="white"
       text-anchor="start"
