@@ -6,6 +6,7 @@ const { migrate, query } = require('./db');
 const authRoutes     = require('./routes/auth');
 const clientesRoutes = require('./routes/clientes');
 const whatsappRoutes = require('./routes/whatsapp');
+const meRoutes       = require('./routes/me');
 const { iniciarBots, verificarRelatorioSemanal } = require('./bot');
 const { statusConexao } = require('./connectors/evolution');
 
@@ -21,12 +22,16 @@ app.use('/cards', express.static(path.join(__dirname, 'cards')));
 app.use('/api/auth',      authRoutes);
 app.use('/api/clientes',  clientesRoutes);
 app.use('/api/whatsapp',  whatsappRoutes);
+app.use('/api/me',        meRoutes);
 
 // Rota de saúde
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }));
 
 // Serve frontend admin
 app.get('/admin*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/admin/index.html')));
+
+// Serve painel do usuário (SPA — cobre sub-rotas além de /painel/index.html)
+app.get('/painel*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/painel/index.html')));
 
 // Serve página de conexão QR (sem login)
 app.get('/conectar/:token', (_, res) => res.sendFile(path.join(__dirname, '../frontend/conectar/index.html')));

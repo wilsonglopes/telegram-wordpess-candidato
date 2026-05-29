@@ -202,6 +202,7 @@
       <button class="tab-btn" onclick="trocarTab('assessores')">👥 Assessores</button>
       <button class="tab-btn" onclick="trocarTab('whatsapp')">📱 WhatsApp</button>
       <button class="tab-btn" onclick="trocarTab('publicacoes')">📰 Publicações</button>
+      <button class="tab-btn" onclick="trocarTab('acesso')">🔐 Acesso</button>
     </div>
     <div class="drawer-body">
 
@@ -383,6 +384,26 @@
       <!-- ABA: PUBLICAÇÕES -->
       <div class="tab-pane" id="tab-publicacoes">
         <div id="listaPublicacoes"><div class="empty-state">Nenhuma publicação ainda. Envie uma mensagem pelo bot Telegram para começar.</div></div>
+      </div>
+
+      <!-- ABA: ACESSO DO USUÁRIO -->
+      <div class="tab-pane" id="tab-acesso">
+        <p style="font-size:var(--text-sm);color:var(--c-text-muted);margin-bottom:var(--sp-4)">
+          Credenciais que o candidato usa para acessar o painel self-service em <strong>/painel</strong>.
+        </p>
+        <label>E-mail de acesso</label>
+        <input type="email" id="dUserEmail" placeholder="candidato@email.com">
+        <label>Nova senha <span style="font-weight:400;color:var(--c-text-faint)">(deixe vazio para não alterar)</span></label>
+        <input type="password" id="dUserSenha" placeholder="Mínimo 8 caracteres">
+        <div id="dPainelLinkWrap" style="display:none;margin:var(--sp-4) 0;padding:var(--sp-3) var(--sp-4);background:var(--c-bg);border-radius:var(--r-md);border:1px solid var(--c-border)">
+          <div style="font-size:var(--text-xs);color:var(--c-text-faint);margin-bottom:4px">Link do painel do usuário:</div>
+          <code id="dPainelLink" style="font-size:var(--text-xs);color:var(--c-primary)"></code>
+          <button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="copiarPainelLink()">Copiar</button>
+        </div>
+        <div class="drawer-footer">
+          <span></span>
+          <button class="btn btn-primary btn-sm" onclick="salvarAcesso()">💾 Salvar acesso</button>
+        </div>
       </div>
 
     </div>
@@ -583,6 +604,17 @@ async function abrirDetalhe(id) {
     document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
+    // Aba Acesso
+    document.getElementById('dUserEmail').value = c.user_email || '';
+    document.getElementById('dUserSenha').value = '';
+    const painelLink = `${window.location.origin}/painel`;
+    if (c.user_email) {
+      document.getElementById('dPainelLinkWrap').style.display = 'block';
+      document.getElementById('dPainelLink').textContent = painelLink;
+    } else {
+      document.getElementById('dPainelLinkWrap').style.display = 'none';
+    }
+
     const base = window.location.origin;
     clienteTokenQr = c.token_qr || null;
     const link = c.token_qr ? `${base}/conectar/${c.token_qr}` : '—';
@@ -605,7 +637,7 @@ function fecharDrawer() {
 
 function trocarTab(nome) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const abas = ['dados','redes','assessores','whatsapp','publicacoes'];
+    const abas = ['dados','redes','assessores','whatsapp','publicacoes','acesso'];
     b.classList.toggle('active', abas[i] === nome);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -657,6 +689,31 @@ function copiarLink() {
   const link = document.getElementById('dQrLink').textContent;
   if (link === '—') return;
   navigator.clipboard.writeText(link).then(() => toast('Link copiado!'));
+}
+
+function copiarPainelLink() {
+  const link = document.getElementById('dPainelLink').textContent;
+  if (link) navigator.clipboard.writeText(link).then(() => toast('Link copiado!'));
+}
+
+async function salvarAcesso() {
+  const id    = document.getElementById('dId').value;
+  const email = document.getElementById('dUserEmail').value.trim();
+  const senha = document.getElementById('dUserSenha').value;
+
+  if (!email) { toast('Informe o e-mail de acesso', true); return; }
+  if (senha && senha.length < 8) { toast('Senha deve ter no mínimo 8 caracteres', true); return; }
+
+  const body = { user_email: email };
+  if (senha) body.user_senha_raw = senha;
+
+  try {
+    await api(`/clientes/${id}`, { method: 'PATCH', body });
+    document.getElementById('dUserSenha').value = '';
+    document.getElementById('dPainelLinkWrap').style.display = 'block';
+    document.getElementById('dPainelLink').textContent = `${window.location.origin}/painel`;
+    toast('Acesso do usuário salvo!');
+  } catch(err) { toast('Erro: ' + err.message, true); }
 }
 
 function toggleWpCredenciais() {

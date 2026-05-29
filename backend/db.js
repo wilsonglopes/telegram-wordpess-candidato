@@ -79,6 +79,10 @@ async function migrate() {
   await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);
   await query(`ALTER TABLE clientes ALTER COLUMN wp_senha   DROP NOT NULL`);
 
+  // Credenciais de acesso ao painel do usuário
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS user_email         TEXT UNIQUE`);
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS user_password_hash TEXT`);
+
   console.log('[db] Migrations OK');
 }
 

@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const bcrypt  = require('bcryptjs');
 const { query } = require('../db');
 const { authMiddleware } = require('./auth');
 const { criarInstancia } = require('../connectors/evolution');
@@ -29,7 +30,8 @@ router.get('/:id', async (req, res) => {
     const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ erro: 'Não encontrado' });
     const cliente = { ...rows[0] };
-    delete cliente.wp_senha; // nunca expõe senha
+    delete cliente.wp_senha;
+    delete cliente.user_password_hash;
     res.json(cliente);
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -97,6 +99,19 @@ router.patch('/:id', async (req, res) => {
         const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [req.params.id]);
         if (rows[0]) try { iniciarBot(rows[0]); } catch {}
       }
+    }
+
+    // Credenciais de acesso do usuário (admin pode definir/redefinir)
+    if (req.body.user_email !== undefined) {
+      const email = req.body.user_email ? req.body.user_email.toLowerCase().trim() : null;
+      await query(`UPDATE clientes SET user_email = $1 WHERE id = $2`, [email, req.params.id]);
+    }
+    if (req.body.user_senha_raw) {
+      if (req.body.user_senha_raw.length < 8) {
+        return res.status(400).json({ erro: 'Senha deve ter no mínimo 8 caracteres' });
+      }
+      const hash = bcrypt.hashSync(req.body.user_senha_raw, 10);
+      await query(`UPDATE clientes SET user_password_hash = $1 WHERE id = $2`, [hash, req.params.id]);
     }
 
     res.json({ ok: true });
