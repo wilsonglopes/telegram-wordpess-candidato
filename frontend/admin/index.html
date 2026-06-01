@@ -55,7 +55,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 64px;
+      height: 68px;
       border-bottom: 1px solid rgba(10,132,255,.25);
       position: sticky;
       top: 0;
@@ -64,20 +64,11 @@
       background: rgba(13,20,36,.92);
     }
     .header-logo {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      font-size: var(--text-sm);
-    }
-    .header-logo .icon {
-      width: 30px; height: 30px;
-      background: var(--c-primary);
-      border-radius: var(--r-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
     }
     .header-actions { display: flex; gap: var(--sp-3); align-items: center; }
     .header-ts { font-size: var(--text-xs); color: var(--c-text-faint); }
@@ -186,9 +177,9 @@
 
 <!-- APP -->
 <div class="app" id="app">
-  <header>
+  <header style="position:relative">
     <div class="header-logo">
-      <img src="/feed_logo_1.png" alt="Scatto" style="height:46px;width:auto;display:block">
+      <img src="/feed_logo_1.png" alt="Scatto" style="height:54px;width:auto;display:block">
     </div>
     <div class="header-actions">
       <span class="header-ts" id="ultimaAtual"></span>
