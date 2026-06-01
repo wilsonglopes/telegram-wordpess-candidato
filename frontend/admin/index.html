@@ -64,14 +64,31 @@
       background: rgba(13,20,36,.92);
     }
     .header-logo {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
       display: flex;
       align-items: center;
+      justify-content: center;
     }
-    .header-actions { display: flex; gap: var(--sp-3); align-items: center; }
-    .header-ts { font-size: var(--text-xs); color: var(--c-text-faint); }
+    .header-actions {
+      display: flex;
+      gap: var(--sp-2);
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .btn-icon {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--c-bg-surface);
+      border: 1px solid var(--c-border);
+      color: var(--c-text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      transition: background var(--t), color var(--t);
+    }
+    .btn-icon:hover { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
+    .header-divider { width: 1px; height: 20px; background: var(--c-border); margin: 0 var(--sp-1); }
 
     main {
       padding: var(--sp-8) clamp(var(--sp-5), 3vw, var(--sp-8));
@@ -177,23 +194,27 @@
 
 <!-- APP -->
 <div class="app" id="app">
-  <header style="position:relative">
+  <header style="display:grid;grid-template-columns:1fr auto 1fr">
+    <div></div>
     <div class="header-logo">
       <img src="/feed_logo_1.png" alt="Scatto" style="height:54px;width:auto;display:block">
     </div>
     <div class="header-actions">
-      <span class="header-ts" id="ultimaAtual"></span>
       <button class="btn btn-primary btn-sm" onclick="abrirNovo()">+ Novo candidato</button>
-      <button class="btn btn-ghost btn-sm" onclick="abrirConfig()" title="Configurações globais">⚙️</button>
+      <button class="btn-icon" onclick="abrirConfig()" title="Configurações globais">⚙️</button>
+      <div class="header-divider"></div>
       <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
     </div>
   </header>
   <main>
     <!-- Abas de nível superior -->
-    <div class="tab-top-bar">
-      <button class="tab-top-btn active" id="ttab-dashboard"  onclick="trocarTabTop('dashboard')">📊 Dashboard</button>
-      <button class="tab-top-btn"        id="ttab-candidatos" onclick="trocarTabTop('candidatos')">👥 Candidatos</button>
-      <button class="tab-top-btn"        id="ttab-financeiro" onclick="trocarTabTop('financeiro')">💰 Financeiro</button>
+    <div class="tab-top-bar" style="justify-content:space-between;align-items:center">
+      <div style="display:flex">
+        <button class="tab-top-btn active" id="ttab-dashboard"  onclick="trocarTabTop('dashboard')">📊 Dashboard</button>
+        <button class="tab-top-btn"        id="ttab-candidatos" onclick="trocarTabTop('candidatos')">👥 Candidatos</button>
+        <button class="tab-top-btn"        id="ttab-financeiro" onclick="trocarTabTop('financeiro')">💰 Financeiro</button>
+      </div>
+      <span id="ultimaAtual" style="font-size:var(--text-xs);color:var(--c-text-faint);padding-right:var(--sp-2)"></span>
     </div>
 
     <!-- ── PANE: DASHBOARD ── -->
