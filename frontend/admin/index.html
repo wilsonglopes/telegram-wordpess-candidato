@@ -237,8 +237,8 @@
 
         <div class="grid2">
           <div>
-            <label>Token Bot Telegram</label>
-            <input type="text" id="dBotToken" placeholder="123456:AABBcc...">
+            <label>Token Bot Telegram <span style="font-size:10px;color:var(--c-text-faint);font-weight:400">(global — AssessorPolítico)</span></label>
+            <input type="text" id="dBotToken" placeholder="Carregando…" readonly style="opacity:.7;cursor:default">
           </div>
           <div>
             <label>Link QR WhatsApp</label>
@@ -461,8 +461,8 @@
 
       <!-- Telegram -->
       <div class="section-title">Telegram</div>
-      <label>Token do Bot</label>
-      <input type="text" id="nBotToken" placeholder="Opcional — pode adicionar depois em Gerenciar → Dados">
+      <label>Token do Bot <span style="font-size:10px;color:var(--c-text-faint);font-weight:400">(global — AssessorPolítico)</span></label>
+      <input type="text" id="nBotToken" placeholder="Carregando…" readonly style="opacity:.7;cursor:default">
 
       <!-- Prompt -->
       <div class="section-title">IA</div>
@@ -523,9 +523,22 @@ async function login() {
   } catch { document.getElementById('loginErro').textContent = 'Senha incorreta'; }
 }
 function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.reload(); }
+let globalBotToken = '';
+
+async function carregarBotToken() {
+  try {
+    const { token } = await api('/config/bot-token');
+    globalBotToken = token || '';
+    const label = token ? token : '(não configurado em settings.json)';
+    document.getElementById('dBotToken').value = label;
+    document.getElementById('nBotToken').value = label;
+  } catch {}
+}
+
 function mostrarApp() {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  carregarBotToken();
   carregarClientes();
   setInterval(carregarClientes, 30000);
 }
@@ -601,7 +614,7 @@ async function abrirDetalhe(id) {
     document.getElementById('dBrandColor').value    = c.brand_color      || '#f97316';
     document.getElementById('dGerarCard').checked   = c.gerar_card !== false;
     toggleDadosWp();
-    document.getElementById('dBotToken').value  = c.telegram_bot_token || '';
+    document.getElementById('dBotToken').value  = globalBotToken || c.telegram_bot_token || '';
     document.getElementById('dPrompt').value    = c.ai_prompt          || '';
 
     // Aba Acesso

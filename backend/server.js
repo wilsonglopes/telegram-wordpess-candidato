@@ -4,6 +4,7 @@ const express = require('express');
 const path    = require('path');
 const { migrate, query } = require('./db');
 const authRoutes     = require('./routes/auth');
+const { authMiddleware } = require('./routes/auth');
 const clientesRoutes = require('./routes/clientes');
 const whatsappRoutes = require('./routes/whatsapp');
 const meRoutes       = require('./routes/me');
@@ -26,6 +27,11 @@ app.use('/api/me',        meRoutes);
 
 // Rota de saúde
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }));
+
+// Token global do bot (admin-only — usado para pré-preencher o campo no painel)
+app.get('/api/config/bot-token', authMiddleware, (_, res) => {
+  res.json({ token: settings.telegram_bot_token || '' });
+});
 
 // Serve frontend admin
 app.get('/admin*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/admin/index.html')));

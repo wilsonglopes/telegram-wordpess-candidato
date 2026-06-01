@@ -22,7 +22,7 @@ function esc(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-const botsAtivos = new Map();
+const botsAtivos = new Map(); // chave: '_bot' (único bot global)
 
 // ── SESSÕES ────────────────────────────────────────────────────────────────────
 // Rascunho por assessor enquanto coleta o material antes de gerar
@@ -82,60 +82,64 @@ function textoPrevia(materia, canais) {
 }
 
 // ── INICIALIZAÇÃO ──────────────────────────────────────────────────────────────
-async function iniciarBots() {
+
+// Busca o candidato de um assessor pelo telegram_user_id.
+// Retorna o objeto cliente completo ou null se não autorizado.
+async function resolverCliente(userId) {
   const { rows } = await query(
-    `SELECT * FROM clientes WHERE ativo = true AND telegram_bot_token IS NOT NULL`
+    `SELECT a.cliente_id FROM assessores a
+     JOIN clientes c ON c.id = a.cliente_id
+     WHERE a.telegram_user_id = $1 AND a.ativo = true AND c.ativo = true
+     LIMIT 1`,
+    [userId]
   );
-  for (const c of rows) iniciarBot(c);
-  console.log(`[bot] ${rows.length} bot(s) iniciados`);
+  if (!rows.length) return null;
+  const { rows: cr } = await query(`SELECT * FROM clientes WHERE id = $1`, [rows[0].cliente_id]);
+  return cr[0] || null;
 }
 
-function iniciarBot(cliente) {
-  if (botsAtivos.has(cliente.id)) return;
+async function iniciarBots() {
+  const token = settings.telegram_bot_token;
+  if (!token) {
+    console.log('[bot] telegram_bot_token não configurado em settings.json — bot não iniciado');
+    return;
+  }
+  if (botsAtivos.has('_bot')) return;
 
-  const bot = new TelegramBot(cliente.telegram_bot_token, { polling: true });
-  botsAtivos.set(cliente.id, bot);
+  const bot = new TelegramBot(token, { polling: true });
+  botsAtivos.set('_bot', bot);
 
   bot.on('message', async (msg) => {
-    try { await processarMensagem(bot, cliente, msg); }
+    try { await processarMensagem(bot, msg); }
     catch (err) {
-      console.error(`[bot:${cliente.slug}] Erro:`, err.message);
+      console.error('[bot] Erro:', err.message);
       bot.sendMessage(msg.chat.id, `❌ Erro: ${err.message}`).catch(() => {});
     }
   });
 
-  bot.on('callback_query', async (query) => {
-    try { await processarCallback(bot, cliente, query); }
+  bot.on('callback_query', async (cbQuery) => {
+    try { await processarCallback(bot, cbQuery); }
     catch (err) {
-      console.error(`[bot:${cliente.slug}] Callback erro:`, err.message);
-      bot.answerCallbackQuery(query.id, { text: '❌ Erro ao processar.' });
+      console.error('[bot] Callback erro:', err.message);
+      bot.answerCallbackQuery(cbQuery.id, { text: '❌ Erro ao processar.' });
     }
   });
 
-  bot.on('polling_error', (err) =>
-    console.error(`[bot:${cliente.slug}] Polling error:`, err.message)
-  );
-  console.log(`[bot] Bot iniciado: ${cliente.nome}`);
+  bot.on('polling_error', (err) => console.error('[bot] Polling error:', err.message));
+  console.log('[bot] Bot único (AssessorPolítico) iniciado');
 }
 
-async function pararBot(clienteId) {
-  const bot = botsAtivos.get(clienteId);
-  if (!bot) return;
-  botsAtivos.delete(clienteId);
-  try { await bot.stopPolling(); } catch {}
-}
+// Mantidos por compatibilidade com clientes.js — sem efeito com bot único.
+function iniciarBot(_cliente) {}
+async function pararBot(_clienteId) {}
 
 // ── PROCESSAMENTO DE MENSAGENS ─────────────────────────────────────────────────
-async function processarMensagem(bot, cliente, msg) {
+async function processarMensagem(bot, msg) {
   const userId = msg.from?.id;
   const chatId = msg.chat.id;
 
-  // Verifica autorização
-  const { rows } = await query(
-    `SELECT id FROM assessores WHERE cliente_id = $1 AND telegram_user_id = $2 AND ativo = true`,
-    [cliente.id, userId]
-  );
-  if (rows.length === 0) {
+  const cliente = await resolverCliente(userId);
+  if (!cliente) {
     return bot.sendMessage(chatId, '⛔ Você não está autorizado. Fale com o administrador.');
   }
 
@@ -194,7 +198,7 @@ async function processarMensagem(bot, cliente, msg) {
     try {
       const fileId   = (msg.voice || msg.audio).file_id;
       const fileInfo = await bot.getFile(fileId);
-      const audioUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
+      const audioUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
       const audioResp = await axios.get(audioUrl, { responseType: 'arraybuffer', timeout: 30000 });
       const form = new FormData();
       form.append('file', Buffer.from(audioResp.data), { filename: 'audio.ogg', contentType: 'audio/ogg' });
@@ -220,7 +224,7 @@ async function processarMensagem(bot, cliente, msg) {
   if (msg.photo) {
     const fileId   = msg.photo[msg.photo.length - 1].file_id;
     const fileInfo = await bot.getFile(fileId);
-    sessao.imagemUrl = `https://api.telegram.org/file/bot${cliente.telegram_bot_token}/${fileInfo.file_path}`;
+    sessao.imagemUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
     if (texto) sessao.textos.push(texto);
     return bot.sendMessage(chatId,
       `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.\nEnvie mais material ou /gerar para criar a matéria.`
@@ -266,10 +270,16 @@ async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
 }
 
 // ── CALLBACKS DOS BOTÕES INLINE ────────────────────────────────────────────────
-async function processarCallback(bot, cliente, cbQuery) {
+async function processarCallback(bot, cbQuery) {
   const userId = cbQuery.from.id;
   const chatId = cbQuery.message.chat.id;
   const data   = cbQuery.data;
+
+  const cliente = await resolverCliente(userId);
+  if (!cliente) {
+    return bot.answerCallbackQuery(cbQuery.id, { text: '⛔ Não autorizado.' });
+  }
+
   const sessao = getSessao(cliente.id, userId);
 
   // Para toggles e cancelar: responde imediatamente (operações rápidas)
@@ -477,17 +487,17 @@ async function cmdGrupos(bot, cliente, chatId) {
 async function verificarRelatorioSemanal() {
   const agora = new Date();
   if (agora.getDay() !== 1 || agora.getHours() !== 8) return;
+  const bot = botsAtivos.get('_bot');
+  if (!bot) return;
   try {
     const { rows: clientes } = await query(`
       SELECT c.id, c.nome,
         (SELECT COUNT(*) FROM publicacoes p
           WHERE p.cliente_id = c.id AND p.status = 'publicado'
             AND p.criado_em > NOW() - INTERVAL '7 days') AS total_semana
-      FROM clientes c WHERE c.ativo = true AND c.telegram_bot_token IS NOT NULL
+      FROM clientes c WHERE c.ativo = true
     `);
     for (const cliente of clientes) {
-      const bot = botsAtivos.get(cliente.id);
-      if (!bot) continue;
       const { rows: assessores } = await query(
         `SELECT telegram_user_id FROM assessores WHERE cliente_id = $1 AND ativo = true`,
         [cliente.id]

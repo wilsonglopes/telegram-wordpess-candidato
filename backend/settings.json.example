@@ -1,5 +1,6 @@
 {
   "jwt_secret": "troque-por-string-aleatoria-longa",
+  "telegram_bot_token": "",
   "admin_password": "troque-pela-senha-do-painel",
   "evolution_api_url": "http://localhost:8080",
   "evolution_api_key": "sua-api-key-da-evolution",
