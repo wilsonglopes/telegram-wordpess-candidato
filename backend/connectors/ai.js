@@ -65,4 +65,49 @@ async function gerarOpenAI(texto, systemPrompt) {
   return JSON.parse(r.data.choices[0].message.content);
 }
 
-module.exports = { gerarMateria };
+const PROMPT_LEGENDA_VIDEO = `Você é um assessor de comunicação política.
+Com base na descrição a seguir, crie uma legenda profissional para publicação em redes sociais.
+Retorne APENAS o texto da legenda, sem aspas, sem títulos, sem explicações.
+Tom: direto, envolvente, político. Máximo 250 palavras.`;
+
+// Gera legenda de texto simples para vídeo (não JSON — retorna string direta)
+async function gerarLegendaVideo({ texto, prompt }) {
+  const systemPrompt = prompt
+    ? `${prompt}\n\nCrie uma legenda de até 250 palavras para redes sociais com base na descrição do vídeo abaixo. Retorne apenas a legenda.`
+    : PROMPT_LEGENDA_VIDEO;
+
+  if (settings.ai_provider === 'deepseek') {
+    return _textoDeepSeek(texto, systemPrompt);
+  }
+  return _textoOpenAI(texto, systemPrompt);
+}
+
+async function _textoDeepSeek(texto, systemPrompt) {
+  const r = await axios.post('https://api.deepseek.com/chat/completions', {
+    model: 'deepseek-chat',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: texto },
+    ],
+  }, {
+    headers: { Authorization: `Bearer ${settings.deepseek_api_key}` },
+    timeout: 60000,
+  });
+  return (r.data.choices[0].message.content || '').trim();
+}
+
+async function _textoOpenAI(texto, systemPrompt) {
+  const r = await axios.post('https://api.openai.com/v1/chat/completions', {
+    model: 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: texto },
+    ],
+  }, {
+    headers: { Authorization: `Bearer ${settings.openai_api_key}` },
+    timeout: 60000,
+  });
+  return (r.data.choices[0].message.content || '').trim();
+}
+
+module.exports = { gerarMateria, gerarLegendaVideo };

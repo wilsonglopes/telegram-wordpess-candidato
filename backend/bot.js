@@ -6,10 +6,10 @@ const FormData    = require('form-data');
 const fs          = require('fs');
 const path        = require('path');
 const { query }         = require('./db');
-const { gerarMateria }  = require('./connectors/ai');
+const { gerarMateria, gerarLegendaVideo: gerarLegendaVideoAI } = require('./connectors/ai');
 const { publicarWP }    = require('./connectors/wordpress');
 const { enviarGrupos, enviarVideoGrupos } = require('./connectors/evolution');
-const { distribuirRedes, publicarVideoFacebook } = require('./connectors/social');
+const { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram } = require('./connectors/social');
 const { gerarImagemTemplate } = require('./utils/imageTemplate');
 const settings = require('./settings.json');
 
@@ -96,6 +96,7 @@ function tecladoVideo(canais) {
       [
         { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
         { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
+        { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
       ],
       [
         { text: '🚀 Publicar agora', callback_data: 'publicar' },
@@ -387,9 +388,15 @@ async function processarMensagem(bot, msg) {
 
       await bot.editMessageText(
         `📹 <b>Vídeo recebido!</b> (${(tamanho / 1024 / 1024).toFixed(1)} MB)\n\n` +
-        `Envie uma legenda (opcional) ou use /publicar_video para distribuir agora.\n` +
-        `Use /limpar para cancelar.`,
-        { chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML' }
+        `Envie uma <b>descrição/legenda</b> para gerar com IA, ou clique abaixo para publicar sem legenda.`,
+        {
+          chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🚀 Publicar sem legenda', callback_data: 'video_publicar' },
+            ]],
+          },
+        }
       );
     } catch (err) {
       sessao.videoUrl   = null;
@@ -416,6 +423,22 @@ async function processarMensagem(bot, msg) {
   // ── TEXTO ───────────────────────────────────────────────────────
   if (texto && !texto.startsWith('/')) {
     sessao.textos.push(texto);
+
+    // Sessão de vídeo: mostra opções ao receber texto (descrição/legenda)
+    if (sessao.videoUrl) {
+      return bot.sendMessage(chatId,
+        `📝 Descrição recebida. O que deseja fazer?`,
+        {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '🤖 Gerar legenda com IA',      callback_data: 'video_gerar'    },
+              { text: '🚀 Publicar com esse texto',    callback_data: 'video_publicar' },
+            ]],
+          },
+        }
+      );
+    }
+
     return bot.sendMessage(chatId,
       `📝 Texto adicionado ao rascunho (${sessao.textos.length} texto(s) acumulado(s)).\nEnvie mais ou /gerar para criar a matéria.`
     );
@@ -500,6 +523,33 @@ async function processarCallback(bot, cbQuery) {
 
   // Para toggles e cancelar: responde imediatamente (operações rápidas)
   // Para publicar: responde imediatamente e executa em background (evita timeout de 30s)
+  // Gerar legenda com IA para o vídeo
+  if (data === 'video_gerar') {
+    await bot.answerCallbackQuery(cbQuery.id);
+    if (!sessao.videoUrl) {
+      return bot.sendMessage(chatId, '⚠️ Nenhum vídeo no rascunho.');
+    }
+    if (!sessao.textos.length) {
+      return bot.sendMessage(chatId, '⚠️ Envie uma descrição antes de gerar a legenda.');
+    }
+    return gerarLegendaVideo(bot, cliente, chatId, userId, sessao);
+  }
+
+  // Ir direto para a prévia (sem gerar com IA)
+  if (data === 'video_publicar') {
+    await bot.answerCallbackQuery(cbQuery.id);
+    if (!sessao.videoUrl) {
+      return bot.sendMessage(chatId, '⚠️ Nenhum vídeo no rascunho.');
+    }
+    sessao.stage = 'confirming';
+    const preview = await bot.sendMessage(chatId, textoPreviewVideo(sessao), {
+      parse_mode:   'HTML',
+      reply_markup: tecladoVideo(sessao.canais),
+    });
+    sessao.msgId = preview.message_id;
+    return;
+  }
+
   if (data === 'publicar') {
     await bot.answerCallbackQuery(cbQuery.id, { text: '🚀 Publicando…' });
     await bot.editMessageText('⏳ Publicando nos canais selecionados…', {
@@ -535,8 +585,6 @@ async function processarCallback(bot, cbQuery) {
 
   if (data.startsWith('toggle_')) {
     const canal = data.replace('toggle_', '');
-    // Vídeo não tem toggle de Instagram — ignorar silenciosamente
-    if (sessao.videoUrl && canal === 'ig') return;
     sessao.canais[canal] = !sessao.canais[canal];
     // Usa teclado e texto correto para o tipo de conteúdo
     const novoTexto    = sessao.videoUrl ? textoPreviewVideo(sessao) : textoPrevia(sessao.materia, sessao.canais);
@@ -679,7 +727,33 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
   );
 }
 
-// ── PUBLICAÇÃO DE VÍDEO (WA + FB, sem WordPress) ──────────────────────────────
+// ── GERAÇÃO DE LEGENDA PARA VÍDEO COM IA ──────────────────────────────────────
+async function gerarLegendaVideo(bot, cliente, chatId, userId, sessao) {
+  const gerando = await bot.sendMessage(chatId, '🤖 Gerando legenda com IA…');
+  try {
+    const descricao = sessao.textos.join('\n\n');
+    const legenda   = await gerarLegendaVideoAI({ texto: descricao, prompt: cliente.ai_prompt });
+
+    // Substitui a descrição bruta pela legenda gerada
+    sessao.textos = [legenda];
+
+    await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
+
+    sessao.stage = 'confirming';
+    const preview = await bot.sendMessage(chatId, textoPreviewVideo(sessao), {
+      parse_mode:   'HTML',
+      reply_markup: tecladoVideo(sessao.canais),
+    });
+    sessao.msgId = preview.message_id;
+  } catch (err) {
+    await bot.editMessageText(
+      `❌ Erro ao gerar legenda: ${esc(err.message)}`,
+      { chat_id: chatId, message_id: gerando.message_id, parse_mode: 'HTML' }
+    );
+  }
+}
+
+// ── PUBLICAÇÃO DE VÍDEO (WA + FB + IG, sem WordPress) ─────────────────────────
 async function publicarVideo(bot, clienteCache, chatId, userId, sessao) {
   const { videoUrl, videoLocal, canais } = sessao;
   const legenda = sessao.textos.join('\n\n') || '';
@@ -719,13 +793,27 @@ async function publicarVideo(bot, clienteCache, chatId, userId, sessao) {
     } catch (err) { erros.push(`Facebook: ${err.message}`); }
   }
 
+  // 3. Instagram (Reels) — processamento pode demorar até 90s
+  if (canais.ig && cliente.ig_user_id && cliente.fb_access_token) {
+    try {
+      await publicarVideoInstagram({
+        ig_user_id:      cliente.ig_user_id,
+        fb_access_token: cliente.fb_access_token,
+        videoUrl,
+        legenda,
+      });
+      publicados.push('📸 Instagram');
+    } catch (err) { erros.push(`Instagram: ${err.message}`); }
+  }
+
   // Registra no banco
   await query(
     `INSERT INTO publicacoes (cliente_id, titulo, status, canal_wp, canal_wa, canal_fb, canal_ig)
-     VALUES ($1, $2, 'publicado', false, $3, $4, false)`,
+     VALUES ($1, $2, 'publicado', false, $3, $4, $5)`,
     [cliente.id, '📹 Vídeo',
      publicados.includes('📱 WhatsApp'),
-     publicados.includes('📘 Facebook')]
+     publicados.includes('📘 Facebook'),
+     publicados.includes('📸 Instagram')]
   ).catch(() => {});
 
   // Remove arquivo local — libera espaço no servidor

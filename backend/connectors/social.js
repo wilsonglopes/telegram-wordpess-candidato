@@ -116,6 +116,53 @@ async function publicarVideoFacebook({ fb_page_id, fb_access_token, videoUrl, le
   }
 }
 
+// ── INSTAGRAM VÍDEO (REELS) ───────────────────────────────────────────────────
+
+async function publicarVideoInstagram({ ig_user_id, fb_access_token, videoUrl, legenda }) {
+  if (!ig_user_id || !fb_access_token || !videoUrl) return null;
+  try {
+    // Passo 1: criar container de Reels
+    const container = await axios.post(`${GRAPH}/${ig_user_id}/media`, {
+      media_type:   'REELS',
+      video_url:    videoUrl,
+      caption:      legenda || '',
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+
+    const creationId = container.data?.id;
+    if (!creationId) throw new Error('Instagram não retornou creation_id para o vídeo');
+
+    // Passo 2: aguardar processamento (poll a cada 5s, máx 90s)
+    let statusCode = '';
+    for (let i = 0; i < 18 && statusCode !== 'FINISHED'; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const check = await axios.get(`${GRAPH}/${creationId}`, {
+        params: { fields: 'status_code', access_token: fb_access_token },
+        timeout: 15000,
+      });
+      statusCode = check.data?.status_code || '';
+      if (statusCode === 'ERROR') throw new Error('Instagram retornou erro ao processar o vídeo');
+    }
+
+    if (statusCode !== 'FINISHED') {
+      throw new Error('Instagram demorou para processar o vídeo. Tente novamente em alguns minutos.');
+    }
+
+    // Passo 3: publicar
+    const pub = await axios.post(`${GRAPH}/${ig_user_id}/media_publish`, {
+      creation_id:  creationId,
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+
+    console.log(`[social] Instagram Reels postado: ${pub.data?.id}`);
+    return pub.data;
+  } catch (err) {
+    const msg = traduzErroMeta(err);
+    console.error('[social] Instagram vídeo erro:', msg);
+    throw new Error(msg);
+  }
+}
+
 // ── PONTO DE ENTRADA ──────────────────────────────────────────────────────────
 
 async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, imagemUrl }) {
@@ -150,4 +197,4 @@ async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, image
   return resultados;
 }
 
-module.exports = { distribuirRedes, publicarVideoFacebook };
+module.exports = { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram };
