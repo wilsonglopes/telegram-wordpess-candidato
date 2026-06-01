@@ -444,25 +444,31 @@
       <!-- ABA: REDES SOCIAIS -->
       <div class="tab-pane" id="tab-redes">
         <div class="section-title" style="margin-top:0">Facebook</div>
+
+        <label>Page Access Token</label>
+        <div style="display:flex;gap:var(--sp-2);align-items:flex-start">
+          <input type="text" id="dFbToken" placeholder="EAABsb..." style="flex:1;margin-bottom:0">
+          <button class="btn btn-primary btn-sm" style="white-space:nowrap;flex-shrink:0;height:42px" onclick="conectarFacebook()">
+            🔗 Conectar
+          </button>
+        </div>
+        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:var(--sp-1);margin-bottom:var(--sp-2)">
+          Cole o <strong>Page Access Token</strong> e clique em Conectar — os IDs abaixo serão preenchidos automaticamente.
+        </p>
+        <div id="dFbStatus" style="display:none;padding:10px 14px;border-radius:var(--r-md);font-size:var(--text-xs);font-weight:600;margin-bottom:var(--sp-3)"></div>
+
         <div class="grid2">
           <div>
-            <label>ID da Página</label>
+            <label>ID da Página <span style="font-size:10px;color:var(--c-text-faint);font-weight:400">(preenchido automaticamente)</span></label>
             <input type="text" id="dFbPageId" placeholder="Ex: 123456789012345">
           </div>
           <div>
-            <label>Page Access Token</label>
-            <input type="text" id="dFbToken" placeholder="EAABsb...">
+            <label>ID da Conta Instagram <span style="font-size:10px;color:var(--c-text-faint);font-weight:400">(preenchido automaticamente)</span></label>
+            <input type="text" id="dIgUserId" placeholder="Ex: 987654321012345">
           </div>
         </div>
         <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-4px;margin-bottom:var(--sp-4)">
-          Obtenha em developers.facebook.com → Graph API Explorer → permissões <code>pages_manage_posts</code> + <code>instagram_content_publish</code>
-        </p>
-
-        <div class="section-title">Instagram Business</div>
-        <label>ID da Conta Instagram</label>
-        <input type="text" id="dIgUserId" placeholder="Ex: 987654321012345">
-        <p style="color:var(--c-text-faint);font-size:var(--text-xs);margin-top:-4px">
-          No Graph API Explorer: <code>GET /{page-id}?fields=instagram_business_account</code>
+          Obtenha o token em developers.facebook.com → Graph API Explorer → permissões <code>pages_manage_posts</code> + <code>instagram_content_publish</code>
         </p>
 
         <div class="section-title">🎨 Card de imagem (1080×1080)</div>
@@ -1140,6 +1146,56 @@ async function salvarRedes() {
     await api(`/clientes/${id}`, { method: 'PATCH', body });
     toast('Configurações de redes sociais salvas!');
   } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function conectarFacebook() {
+  const token = document.getElementById('dFbToken').value.trim();
+  const statusEl = document.getElementById('dFbStatus');
+
+  if (!token) {
+    statusEl.style.display = 'block';
+    statusEl.style.background = 'rgba(239,68,68,.12)';
+    statusEl.style.color = '#fca5a5';
+    statusEl.textContent = '⚠️ Cole o Page Access Token antes de conectar.';
+    return;
+  }
+
+  statusEl.style.display = 'block';
+  statusEl.style.background = 'rgba(10,132,255,.1)';
+  statusEl.style.color = 'var(--c-text-muted)';
+  statusEl.textContent = '⏳ Verificando token com a Graph API…';
+
+  try {
+    const url = `https://graph.facebook.com/v19.0/me?fields=id,name,instagram_business_account&access_token=${encodeURIComponent(token)}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (data.error) {
+      statusEl.style.background = 'rgba(239,68,68,.12)';
+      statusEl.style.color = '#fca5a5';
+      statusEl.textContent = `❌ Erro: ${data.error.message}`;
+      return;
+    }
+
+    const pageId = data.id || '';
+    const igId   = data.instagram_business_account?.id || '';
+    const nome   = data.name || '';
+
+    document.getElementById('dFbPageId').value = pageId;
+    if (igId) document.getElementById('dIgUserId').value = igId;
+
+    let msg = `✅ Conectado: ${nome} (ID: ${pageId})`;
+    if (igId)  msg += ` · Instagram: ${igId}`;
+    else       msg += ' · Instagram Business não vinculado a esta página';
+
+    statusEl.style.background = 'rgba(16,185,129,.12)';
+    statusEl.style.color = '#6ee7b7';
+    statusEl.textContent = msg;
+  } catch (err) {
+    statusEl.style.background = 'rgba(239,68,68,.12)';
+    statusEl.style.color = '#fca5a5';
+    statusEl.textContent = `❌ Erro de rede: ${err.message}`;
+  }
 }
 
 // ─── ASSESSORES ───────────────────────────────────────────
