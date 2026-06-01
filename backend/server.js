@@ -2,13 +2,14 @@
 
 const express = require('express');
 const path    = require('path');
+const fs      = require('fs');
 const { migrate, query } = require('./db');
 const authRoutes     = require('./routes/auth');
 const { authMiddleware } = require('./routes/auth');
 const clientesRoutes = require('./routes/clientes');
 const whatsappRoutes = require('./routes/whatsapp');
 const meRoutes       = require('./routes/me');
-const { iniciarBots, verificarRelatorioSemanal } = require('./bot');
+const { iniciarBots, reiniciarBot, verificarRelatorioSemanal } = require('./bot');
 const { statusConexao } = require('./connectors/evolution');
 
 const settings = require('./settings.json');
@@ -28,9 +29,25 @@ app.use('/api/me',        meRoutes);
 // Rota de saúde
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }));
 
-// Token global do bot (admin-only — usado para pré-preencher o campo no painel)
+// Token global do bot — leitura e atualização (admin-only)
 app.get('/api/config/bot-token', authMiddleware, (_, res) => {
   res.json({ token: settings.telegram_bot_token || '' });
+});
+
+app.patch('/api/config/bot-token', authMiddleware, async (req, res) => {
+  const { token } = req.body;
+  if (token === undefined) return res.status(400).json({ erro: 'Campo token obrigatório' });
+
+  const SETTINGS_PATH = path.join(__dirname, 'settings.json');
+  try {
+    const atual = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
+    atual.telegram_bot_token = token || '';
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(atual, null, 2));
+    await reiniciarBot(token || '');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
 // Serve frontend admin

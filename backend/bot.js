@@ -133,6 +133,16 @@ async function iniciarBots() {
 function iniciarBot(_cliente) {}
 async function pararBot(_clienteId) {}
 
+async function reiniciarBot(novoToken) {
+  const bot = botsAtivos.get('_bot');
+  if (bot) {
+    botsAtivos.delete('_bot');
+    try { await bot.stopPolling(); } catch {}
+  }
+  settings.telegram_bot_token = novoToken;
+  if (novoToken) await iniciarBots();
+}
+
 // ── PROCESSAMENTO DE MENSAGENS ─────────────────────────────────────────────────
 async function processarMensagem(bot, msg) {
   const userId = msg.from?.id;
@@ -515,4 +525,4 @@ async function verificarRelatorioSemanal() {
   } catch (err) { console.error('[relatorio] Erro:', err.message); }
 }
 
-module.exports = { iniciarBots, iniciarBot, pararBot, verificarRelatorioSemanal };
+module.exports = { iniciarBots, iniciarBot, pararBot, reiniciarBot, verificarRelatorioSemanal };
