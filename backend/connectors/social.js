@@ -97,6 +97,25 @@ async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, re
   }
 }
 
+// ── FACEBOOK VÍDEO ────────────────────────────────────────────────────────────
+
+async function publicarVideoFacebook({ fb_page_id, fb_access_token, videoUrl, legenda }) {
+  if (!fb_page_id || !fb_access_token || !videoUrl) return null;
+  try {
+    const r = await axios.post(`${GRAPH}/${fb_page_id}/videos`, {
+      file_url:     videoUrl,
+      description:  legenda || '',
+      access_token: fb_access_token,
+    }, { timeout: 120000 }); // timeout maior — Facebook processa o vídeo antes de responder
+    console.log(`[social] Facebook vídeo postado: ${r.data?.id}`);
+    return r.data;
+  } catch (err) {
+    const msg = traduzErroMeta(err);
+    console.error('[social] Facebook vídeo erro:', msg);
+    throw new Error(msg);
+  }
+}
+
 // ── PONTO DE ENTRADA ──────────────────────────────────────────────────────────
 
 async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, imagemUrl }) {
@@ -131,4 +150,4 @@ async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, image
   return resultados;
 }
 
-module.exports = { distribuirRedes };
+module.exports = { distribuirRedes, publicarVideoFacebook };

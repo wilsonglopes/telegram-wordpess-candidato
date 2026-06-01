@@ -91,4 +91,27 @@ async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, ima
   }
 }
 
-module.exports = { criarInstancia, obterQRCode, statusConexao, listarGrupos, enviarGrupos };
+// Envia vídeo para todos os grupos ativos do cliente
+async function enviarVideoGrupos({ instancia, clienteId, videoUrl, legenda }) {
+  const { rows: grupos } = await query(
+    `SELECT group_jid, nome FROM grupos_whatsapp WHERE cliente_id = $1 AND ativo = true`,
+    [clienteId]
+  );
+  if (!grupos.length) return;
+
+  for (const grupo of grupos) {
+    try {
+      await axios.post(`${BASE()}/message/sendMedia/${instancia}`, {
+        number:    grupo.group_jid,
+        mediatype: 'video',
+        mimetype:  'video/mp4',
+        caption:   legenda || '',
+        media:     videoUrl,
+      }, { headers: headers(), timeout: 60000 });
+    } catch (err) {
+      console.warn(`[evolution] Vídeo falhou no grupo ${grupo.nome}:`, err.message);
+    }
+  }
+}
+
+module.exports = { criarInstancia, obterQRCode, statusConexao, listarGrupos, enviarGrupos, enviarVideoGrupos };

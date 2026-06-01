@@ -8,12 +8,14 @@ const path        = require('path');
 const { query }         = require('./db');
 const { gerarMateria }  = require('./connectors/ai');
 const { publicarWP }    = require('./connectors/wordpress');
-const { enviarGrupos }  = require('./connectors/evolution');
-const { distribuirRedes } = require('./connectors/social');
+const { enviarGrupos, enviarVideoGrupos } = require('./connectors/evolution');
+const { distribuirRedes, publicarVideoFacebook } = require('./connectors/social');
 const { gerarImagemTemplate } = require('./utils/imageTemplate');
 const settings = require('./settings.json');
 
-const CARDS_DIR = path.join(__dirname, 'cards');
+const CARDS_DIR  = path.join(__dirname, 'cards');
+const VIDEOS_DIR = path.join(__dirname, 'videos');
+if (!fs.existsSync(VIDEOS_DIR)) fs.mkdirSync(VIDEOS_DIR, { recursive: true });
 
 // Escapa caracteres especiais do HTML para o parse_mode 'HTML' do Telegram.
 // Usado em todo conteúdo dinâmico (título, chapéu, resumo gerados pela IA)
@@ -82,6 +84,35 @@ function textoPrevia(materia, canais) {
     `${canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
     `${canais.fb ? '✅' : '⬜'} Facebook\n` +
     `${canais.ig ? '✅' : '⬜'} Instagram\n\n` +
+    `<i>Ative ou desative os canais e clique em 🚀 Publicar</i>`
+  );
+}
+
+// ── TECLADO E PRÉVIA — VÍDEO ───────────────────────────────────────────────────
+// Teclado inline para vídeo: apenas WhatsApp e Facebook (sem WordPress nem Instagram)
+function tecladoVideo(canais) {
+  return {
+    inline_keyboard: [
+      [
+        { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
+        { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
+      ],
+      [
+        { text: '🚀 Publicar agora', callback_data: 'publicar' },
+        { text: '🗑️ Cancelar',       callback_data: 'cancelar' },
+      ],
+    ],
+  };
+}
+
+function textoPreviewVideo(sessao) {
+  const legenda = sessao.textos.join('\n\n') || '(sem legenda)';
+  return (
+    `📹 <b>VÍDEO PRONTO PARA DISTRIBUIÇÃO</b>\n\n` +
+    `📝 <b>Legenda:</b>\n<i>${esc(legenda.slice(0, 300))}${legenda.length > 300 ? '…' : ''}</i>\n\n` +
+    `<b>Publicar em:</b>\n` +
+    `${sessao.canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
+    `${sessao.canais.fb ? '✅' : '⬜'} Facebook\n\n` +
     `<i>Ative ou desative os canais e clique em 🚀 Publicar</i>`
   );
 }
@@ -236,6 +267,7 @@ async function processarMensagem(bot, msg) {
       `4️⃣ Clique em 🚀 Publicar\n\n` +
       `<b>Comandos:</b>\n` +
       `/gerar — gera a matéria com o material enviado\n` +
+      `/publicar_video — distribui o vídeo no rascunho (WA + FB)\n` +
       `/rascunho — vê o que foi acumulado\n` +
       `/limpar — descarta o rascunho atual\n` +
       `/status — status da conexão\n` +
@@ -250,8 +282,24 @@ async function processarMensagem(bot, msg) {
   if (texto === '/grupos') return cmdGrupos(bot, cliente, chatId);
 
   if (texto === '/limpar') {
+    if (sessao.videoLocal) {
+      try { fs.unlinkSync(sessao.videoLocal); } catch {}
+    }
     limparSessao(cliente.id, userId);
     return bot.sendMessage(chatId, '🗑️ Rascunho descartado. Pode começar de novo.');
+  }
+
+  if (texto === '/publicar_video') {
+    if (!sessao.videoUrl) {
+      return bot.sendMessage(chatId, '⚠️ Nenhum vídeo no rascunho. Envie um vídeo primeiro.');
+    }
+    sessao.stage = 'confirming';
+    const preview = await bot.sendMessage(chatId, textoPreviewVideo(sessao), {
+      parse_mode:   'HTML',
+      reply_markup: tecladoVideo(sessao.canais),
+    });
+    sessao.msgId = preview.message_id;
+    return;
   }
 
   if (texto === '/rascunho') {
@@ -298,6 +346,60 @@ async function processarMensagem(bot, msg) {
     } catch (err) {
       return bot.editMessageText(`❌ Erro na transcrição: ${err.message}`, { chat_id: chatId, message_id: transcrevendo.message_id });
     }
+  }
+
+  // ── VÍDEO ───────────────────────────────────────────────────────
+  if (msg.video || msg.video_note) {
+    const fileObj  = msg.video || msg.video_note;
+    const tamanho  = fileObj.file_size || 0;
+
+    if (tamanho > 50 * 1024 * 1024) {
+      return bot.sendMessage(chatId,
+        '⚠️ Vídeo muito grande (máx 50 MB). Comprima o arquivo e tente novamente.'
+      );
+    }
+
+    if (sessao.videoUrl) {
+      return bot.sendMessage(chatId,
+        '⚠️ Já há um vídeo no rascunho. Use /publicar_video para distribuir ou /limpar para descartar.'
+      );
+    }
+
+    const baixando = await bot.sendMessage(chatId, '⏳ Baixando vídeo…');
+    try {
+      const fileInfo = await bot.getFile(fileObj.file_id);
+      const telegramUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
+
+      const filename  = `${cliente.slug}-${Date.now()}.mp4`;
+      const localPath = path.join(VIDEOS_DIR, filename);
+      const base      = (settings.base_url || '').replace(/\/$/, '');
+      const publicUrl = `${base}/videos/${filename}`;
+
+      const videoResp = await axios.get(telegramUrl, { responseType: 'arraybuffer', timeout: 120000 });
+      fs.writeFileSync(localPath, Buffer.from(videoResp.data));
+
+      sessao.videoUrl   = publicUrl;
+      sessao.videoLocal = localPath;
+
+      // Legenda enviada junto ao vídeo vira texto do rascunho
+      const captionTelegram = msg.caption || '';
+      if (captionTelegram) sessao.textos.push(captionTelegram);
+
+      await bot.editMessageText(
+        `📹 <b>Vídeo recebido!</b> (${(tamanho / 1024 / 1024).toFixed(1)} MB)\n\n` +
+        `Envie uma legenda (opcional) ou use /publicar_video para distribuir agora.\n` +
+        `Use /limpar para cancelar.`,
+        { chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      sessao.videoUrl   = null;
+      sessao.videoLocal = null;
+      await bot.editMessageText(
+        `❌ Erro ao baixar vídeo: ${esc(err.message)}`,
+        { chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML' }
+      );
+    }
+    return;
   }
 
   // ── FOTO ────────────────────────────────────────────────────────
@@ -403,17 +505,27 @@ async function processarCallback(bot, cbQuery) {
     await bot.editMessageText('⏳ Publicando nos canais selecionados…', {
       chat_id: chatId, message_id: cbQuery.message.message_id,
     });
-    // Não aguarda — publica em background para não travar o handler do callback
-    publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao).catch(err => {
-      console.error(`[bot:${cliente.slug}] Erro na publicação:`, err.message);
-      bot.sendMessage(chatId, `❌ Erro inesperado: ${err.message}`).catch(() => {});
-    });
+    // Branch: vídeo ou matéria de texto/foto
+    if (sessao.videoUrl) {
+      publicarVideo(bot, cliente, chatId, userId, sessao).catch(err => {
+        console.error(`[bot:${cliente.slug}] Erro na publicação de vídeo:`, err.message);
+        bot.sendMessage(chatId, `❌ Erro inesperado: ${err.message}`).catch(() => {});
+      });
+    } else {
+      publicarEmTodosOsCanais(bot, cliente, chatId, userId, sessao).catch(err => {
+        console.error(`[bot:${cliente.slug}] Erro na publicação:`, err.message);
+        bot.sendMessage(chatId, `❌ Erro inesperado: ${err.message}`).catch(() => {});
+      });
+    }
     return;
   }
 
   await bot.answerCallbackQuery(cbQuery.id);
 
   if (data === 'cancelar') {
+    if (sessao.videoLocal) {
+      try { fs.unlinkSync(sessao.videoLocal); } catch {}
+    }
     limparSessao(cliente.id, userId);
     await bot.editMessageText('🗑️ Publicação cancelada. Rascunho descartado.', {
       chat_id: chatId, message_id: cbQuery.message.message_id,
@@ -423,12 +535,17 @@ async function processarCallback(bot, cbQuery) {
 
   if (data.startsWith('toggle_')) {
     const canal = data.replace('toggle_', '');
+    // Vídeo não tem toggle de Instagram — ignorar silenciosamente
+    if (sessao.videoUrl && canal === 'ig') return;
     sessao.canais[canal] = !sessao.canais[canal];
-    await bot.editMessageText(textoPrevia(sessao.materia, sessao.canais), {
+    // Usa teclado e texto correto para o tipo de conteúdo
+    const novoTexto    = sessao.videoUrl ? textoPreviewVideo(sessao) : textoPrevia(sessao.materia, sessao.canais);
+    const novoTeclado  = sessao.videoUrl ? tecladoVideo(sessao.canais) : teclado(sessao.canais);
+    await bot.editMessageText(novoTexto, {
       chat_id:      chatId,
       message_id:   cbQuery.message.message_id,
       parse_mode:   'HTML',
-      reply_markup: teclado(sessao.canais),
+      reply_markup: novoTeclado,
     });
     return;
   }
@@ -557,6 +674,80 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
     `✅ <b>Publicado em ${publicados.length} canal(is)!</b>\n\n` +
     `${chapeuTexto}📰 <b>${esc(materia.titulo)}</b>\n\n` +
     `🔗 ${esc(post.link)}\n\n` +
+    `<i>${esc(publicados.join(' · '))}</i>${erroTexto}`,
+    { parse_mode: 'HTML' }
+  );
+}
+
+// ── PUBLICAÇÃO DE VÍDEO (WA + FB, sem WordPress) ──────────────────────────────
+async function publicarVideo(bot, clienteCache, chatId, userId, sessao) {
+  const { videoUrl, videoLocal, canais } = sessao;
+  const legenda = sessao.textos.join('\n\n') || '';
+  const publicados = [];
+  const erros      = [];
+
+  // Recarrega cliente para pegar credenciais atualizadas
+  let cliente = clienteCache;
+  try {
+    const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [clienteCache.id]);
+    if (rows[0]) cliente = rows[0];
+  } catch {}
+
+  // 1. WhatsApp
+  if (canais.wa) {
+    try {
+      await enviarVideoGrupos({
+        instancia: cliente.evolution_instancia,
+        clienteId: cliente.id,
+        videoUrl,
+        legenda,
+      });
+      publicados.push('📱 WhatsApp');
+    } catch (err) { erros.push(`WhatsApp: ${err.message}`); }
+  }
+
+  // 2. Facebook
+  if (canais.fb) {
+    try {
+      await publicarVideoFacebook({
+        fb_page_id:      cliente.fb_page_id,
+        fb_access_token: cliente.fb_access_token,
+        videoUrl,
+        legenda,
+      });
+      publicados.push('📘 Facebook');
+    } catch (err) { erros.push(`Facebook: ${err.message}`); }
+  }
+
+  // Registra no banco
+  await query(
+    `INSERT INTO publicacoes (cliente_id, titulo, status, canal_wp, canal_wa, canal_fb, canal_ig)
+     VALUES ($1, $2, 'publicado', false, $3, $4, false)`,
+    [cliente.id, '📹 Vídeo',
+     publicados.includes('📱 WhatsApp'),
+     publicados.includes('📘 Facebook')]
+  ).catch(() => {});
+
+  // Remove arquivo local — libera espaço no servidor
+  if (videoLocal) {
+    try { fs.unlinkSync(videoLocal); } catch {}
+  }
+
+  limparSessao(cliente.id, userId);
+
+  const erroTexto = erros.length
+    ? `\n\n⚠️ <i>Erros:</i>\n${esc(erros.map(e => `• ${e}`).join('\n'))}`
+    : '';
+
+  if (!publicados.length) {
+    return bot.sendMessage(chatId,
+      `❌ <b>Falha ao distribuir o vídeo.</b>\n\n${esc(erros.join('\n'))}`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  await bot.sendMessage(chatId,
+    `✅ <b>Vídeo distribuído em ${publicados.length} canal(is)!</b>\n\n` +
     `<i>${esc(publicados.join(' · '))}</i>${erroTexto}`,
     { parse_mode: 'HTML' }
   );

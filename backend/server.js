@@ -21,7 +21,9 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 // Cards sociais gerados (acessíveis publicamente para FB/IG/WhatsApp)
-app.use('/cards', express.static(path.join(__dirname, 'cards')));
+app.use('/cards',  express.static(path.join(__dirname, 'cards')));
+// Vídeos recebidos do Telegram e distribuídos para FB/WhatsApp
+app.use('/videos', express.static(path.join(__dirname, 'videos')));
 
 app.use('/api/auth',      authRoutes);
 app.use('/api/clientes',  clientesRoutes);
