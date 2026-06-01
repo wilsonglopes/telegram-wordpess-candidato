@@ -1,39 +1,43 @@
 /* ═══════════════════════════════════════════════════════
-   PLATAFORMA CANDIDATOS — DESIGN SYSTEM v1
+   PLATAFORMA CANDIDATOS — DESIGN SYSTEM v2
+   Identidade visual Scatto (#0A84FF · #00D4FF · #0D1424)
    ═══════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 /* ── TOKENS ─────────────────────────────────────────── */
 :root {
-  /* Palette — dark */
-  --c-bg:          #0f172a;
-  --c-bg-card:     #1e293b;
-  --c-bg-surface:  #334155;
-  --c-border:      #334155;
-  --c-text:        #e2e8f0;
-  --c-text-muted:  #94a3b8;
-  --c-text-faint:  #64748b;
+  /* Palette — dark (Scatto navy) */
+  --c-bg:          #0D1424;
+  --c-bg-card:     #111d33;
+  --c-bg-surface:  #1a2d4a;
+  --c-border:      #1e3553;
+  --c-text:        #e8f0fe;
+  --c-text-muted:  #7a9bbf;
+  --c-text-faint:  #4a6585;
 
   /* Palette — light (landing sections) */
   --c-white:       #ffffff;
   --c-gray-50:     #f8fafc;
   --c-gray-100:    #f1f5f9;
   --c-gray-200:    #e2e8f0;
-  --c-gray-900:    #0f172a;
+  --c-gray-900:    #0D1424;
 
-  /* Brand */
-  --c-primary:       #2563eb;
-  --c-primary-hover: #1d4ed8;
-  --c-primary-light: #dbeafe;
-  --c-primary-glow:  rgba(37,99,235,.25);
-  --c-success:       #16a34a;
-  --c-success-bg:    #14532d;
+  /* Brand Scatto */
+  --c-primary:       #0A84FF;
+  --c-primary-hover: #0070e0;
+  --c-primary-light: rgba(10,132,255,.15);
+  --c-primary-glow:  rgba(10,132,255,.30);
+  --c-accent:        #00D4FF;
+  --c-success:       #10b981;
+  --c-success-bg:    #052e1e;
   --c-danger:        #ef4444;
-  --c-danger-bg:     #450a0a;
-  --c-warning:       #d97706;
-  --c-warning-bg:    #713f12;
+  --c-danger-bg:     #3b0a0a;
+  --c-warning:       #f59e0b;
+  --c-warning-bg:    #451a03;
 
   /* Typography */
-  --font: system-ui, -apple-system, 'Inter', sans-serif;
+  --font: 'Poppins', system-ui, -apple-system, sans-serif;
   --text-xs:   .75rem;
   --text-sm:   .875rem;
   --text-base: 1rem;
