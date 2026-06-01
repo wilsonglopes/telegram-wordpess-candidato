@@ -8,7 +8,9 @@ const authRoutes     = require('./routes/auth');
 const { authMiddleware } = require('./routes/auth');
 const clientesRoutes = require('./routes/clientes');
 const whatsappRoutes = require('./routes/whatsapp');
-const meRoutes       = require('./routes/me');
+const meRoutes         = require('./routes/me');
+const dashboardRoutes  = require('./routes/dashboard');
+const financeiroRoutes = require('./routes/financeiro');
 const { iniciarBots, reiniciarBot, verificarRelatorioSemanal } = require('./bot');
 const { statusConexao } = require('./connectors/evolution');
 
@@ -24,7 +26,9 @@ app.use('/cards', express.static(path.join(__dirname, 'cards')));
 app.use('/api/auth',      authRoutes);
 app.use('/api/clientes',  clientesRoutes);
 app.use('/api/whatsapp',  whatsappRoutes);
-app.use('/api/me',        meRoutes);
+app.use('/api/me',          meRoutes);
+app.use('/api/dashboard',   dashboardRoutes);
+app.use('/api/financeiro',  financeiroRoutes);
 
 // Rota de saúde
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }));

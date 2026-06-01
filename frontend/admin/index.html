@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Painel — Plataforma Candidatos</title>
   <link rel="stylesheet" href="/design-system.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     body { background: var(--c-bg); min-height: 100vh; }
 
@@ -107,6 +108,60 @@
     .tab-pane label { margin-top: var(--sp-2); }
     .tab-pane .section-title { margin: var(--sp-3) 0 var(--sp-2); }
     .tab-pane .grid2 { gap: 0 var(--sp-4); }
+
+    /* ── ABAS DE NÍVEL SUPERIOR ── */
+    .tab-top-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: var(--sp-6);
+      border-bottom: 1px solid var(--c-border);
+    }
+    .tab-top-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--c-text-faint);
+      padding: var(--sp-3) var(--sp-5);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-top-btn:hover { color: var(--c-text); }
+    .tab-top-btn.active { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+
+    /* ── CARDS KPI ── */
+    .card-kpi {
+      background: var(--c-bg-card);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: var(--sp-4) var(--sp-5);
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-1);
+    }
+    .kpi-icon  { font-size: 22px; }
+    .kpi-valor { font-size: 28px; font-weight: 700; line-height: 1.1; }
+    .kpi-label { font-size: var(--text-xs); color: var(--c-text-faint); margin-top: 2px; }
+    .card-kpi.alerta-erro  { border-color: #ef4444; background: rgba(239,68,68,.07); }
+    .card-kpi.alerta-aviso { border-color: #f97316; background: rgba(249,115,22,.07); }
+
+    /* ── GRID DASHBOARD ── */
+    .dash-graficos {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-4);
+    }
+    .dash-bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4);
+    }
+    @media (max-width: 900px) {
+      .dash-graficos, .dash-bottom { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -143,45 +198,140 @@
     </div>
   </header>
   <main>
-    <!-- Stats -->
-    <div class="stat-grid" id="statsGrid">
-      <div class="stat-card">
-        <div class="stat-label">Total de candidatos</div>
-        <div class="stat-value" id="statTotal">—</div>
+    <!-- Abas de nível superior -->
+    <div class="tab-top-bar">
+      <button class="tab-top-btn active" id="ttab-dashboard"  onclick="trocarTabTop('dashboard')">📊 Dashboard</button>
+      <button class="tab-top-btn"        id="ttab-candidatos" onclick="trocarTabTop('candidatos')">👥 Candidatos</button>
+      <button class="tab-top-btn"        id="ttab-financeiro" onclick="trocarTabTop('financeiro')">💰 Financeiro</button>
+    </div>
+
+    <!-- ── PANE: DASHBOARD ── -->
+    <div id="ttab-pane-dashboard">
+      <!-- KPI cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:var(--sp-4);margin-bottom:var(--sp-5)">
+        <div class="card-kpi" id="kpi-bot">
+          <div class="kpi-icon">🤖</div>
+          <div class="kpi-valor" id="kv-bot">—</div>
+          <div class="kpi-label">Status do Bot</div>
+        </div>
+        <div class="card-kpi">
+          <div class="kpi-icon">👥</div>
+          <div class="kpi-valor" id="kv-candidatos">—</div>
+          <div class="kpi-label">Candidatos ativos</div>
+        </div>
+        <div class="card-kpi">
+          <div class="kpi-icon">📰</div>
+          <div class="kpi-valor" id="kv-pubmes">—</div>
+          <div class="kpi-label">Publicações este mês</div>
+        </div>
+        <div class="card-kpi">
+          <div class="kpi-icon">📅</div>
+          <div class="kpi-valor" id="kv-pubhoje">—</div>
+          <div class="kpi-label">Publicações hoje</div>
+        </div>
+        <div class="card-kpi">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-valor" id="kv-mrr">—</div>
+          <div class="kpi-label">MRR</div>
+        </div>
+        <div class="card-kpi" id="kpi-inadimp">
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-valor" id="kv-inadimp">—</div>
+          <div class="kpi-label">Inadimplentes</div>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Candidatos ativos</div>
-        <div class="stat-value" id="statAtivos">—</div>
+
+      <!-- Gráficos linha + donut -->
+      <div class="dash-graficos">
+        <div class="card" style="padding:var(--sp-5)">
+          <div style="font-weight:600;margin-bottom:var(--sp-3);font-size:var(--text-sm)">📈 Publicações — últimos 30 dias</div>
+          <canvas id="chartLinha" height="90"></canvas>
+        </div>
+        <div class="card" style="padding:var(--sp-5)">
+          <div style="font-weight:600;margin-bottom:var(--sp-3);font-size:var(--text-sm)">📡 Distribuição por canal</div>
+          <canvas id="chartCanal" height="170"></canvas>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">WhatsApp conectado</div>
-        <div class="stat-value" id="statConectados">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Bots Telegram</div>
-        <div class="stat-value" id="statBots">—</div>
+
+      <!-- Ranking + Alertas -->
+      <div class="dash-bottom">
+        <div class="card" style="padding:var(--sp-5)">
+          <div style="font-weight:600;margin-bottom:var(--sp-3);font-size:var(--text-sm)">🏆 Ranking — publicações (30 dias)</div>
+          <canvas id="chartRanking" height="160"></canvas>
+        </div>
+        <div class="card" style="padding:var(--sp-5)">
+          <div style="font-weight:600;margin-bottom:var(--sp-3);font-size:var(--text-sm)">🚨 Alertas operacionais</div>
+          <div id="listaAlertas" style="font-size:var(--text-sm);color:var(--c-text-faint)">Carregando…</div>
+        </div>
       </div>
     </div>
 
-    <!-- Tabela -->
-    <div class="card">
-      <div class="card-header">
-        <h2>Candidatos</h2>
+    <!-- ── PANE: CANDIDATOS ── -->
+    <div id="ttab-pane-candidatos" style="display:none">
+      <!-- Stats -->
+      <div class="stat-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-label">Total de candidatos</div>
+          <div class="stat-value" id="statTotal">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Candidatos ativos</div>
+          <div class="stat-value" id="statAtivos">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">WhatsApp conectado</div>
+          <div class="stat-value" id="statConectados">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bots Telegram</div>
+          <div class="stat-value" id="statBots">—</div>
+        </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Candidato</th>
-              <th>WordPress</th>
-              <th>Bot Telegram</th>
-              <th>WhatsApp</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tabelaClientes"></tbody>
-        </table>
+      <!-- Tabela -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Candidatos</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Candidato</th>
+                <th>WordPress</th>
+                <th>Bot Telegram</th>
+                <th>WhatsApp</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaClientes"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PANE: FINANCEIRO ── -->
+    <div id="ttab-pane-financeiro" style="display:none">
+      <!-- Sumário -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:var(--sp-4);margin-bottom:var(--sp-5)">
+        <div class="card-kpi"><div class="kpi-icon">💰</div><div class="kpi-valor" id="fin-mrr">—</div><div class="kpi-label">MRR</div></div>
+        <div class="card-kpi"><div class="kpi-icon">✅</div><div class="kpi-valor" id="fin-ativos">—</div><div class="kpi-label">Contratos ativos</div></div>
+        <div class="card-kpi" id="fin-card-inadimp"><div class="kpi-icon">⚠️</div><div class="kpi-valor" id="fin-inadimp">—</div><div class="kpi-label">Inadimplentes</div></div>
+        <div class="card-kpi"><div class="kpi-icon">🧪</div><div class="kpi-valor" id="fin-trial">—</div><div class="kpi-label">Em trial</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-3)">
+        <a href="#" class="btn btn-ghost btn-sm" id="btnExportCsv" target="_blank">⬇️ Exportar CSV</a>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Candidato</th><th>Plano</th><th>Valor/mês</th>
+              <th>Venc. dia</th><th>Status</th><th>Último pag.</th><th></th>
+            </tr></thead>
+            <tbody id="finTabela"><tr><td colspan="7" style="text-align:center;color:var(--c-text-faint);padding:var(--sp-6)">Carregando…</td></tr></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </main>
@@ -411,8 +561,85 @@
   </div>
 </div>
 
+<!-- MODAL: FINANCEIRO -->
+<div class="overlay" id="finOverlay" style="align-items:center" onclick="if(event.target===this)fecharFin()">
+  <div class="drawer" style="max-width:500px;height:auto;max-height:88vh">
+    <div class="drawer-head">
+      <span id="finTitulo">💰 Configuração financeira</span>
+      <button class="btn btn-ghost btn-sm" onclick="fecharFin()">✕ Fechar</button>
+    </div>
+    <div style="padding:var(--sp-5);overflow-y:auto">
+      <input type="hidden" id="finClienteId">
+      <div class="grid2">
+        <div>
+          <label>Plano</label>
+          <select id="finPlano">
+            <option value="trial">Trial (gratuito)</option>
+            <option value="basico">Básico</option>
+            <option value="profissional">Profissional</option>
+            <option value="premium">Premium</option>
+          </select>
+        </div>
+        <div>
+          <label>Valor mensal (R$)</label>
+          <input type="number" id="finValor" min="0" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Dia de vencimento</label>
+          <input type="number" id="finVencDia" min="1" max="28" placeholder="10">
+        </div>
+        <div>
+          <label>Forma de pagamento</label>
+          <select id="finForma">
+            <option value="">— Selecione —</option>
+            <option value="pix">PIX</option>
+            <option value="boleto">Boleto</option>
+            <option value="cartao">Cartão</option>
+            <option value="transferencia">Transferência</option>
+          </select>
+        </div>
+      </div>
+      <label>Status</label>
+      <select id="finStatus">
+        <option value="trial">Trial</option>
+        <option value="ativo">Ativo</option>
+        <option value="inadimplente">Inadimplente</option>
+        <option value="suspenso">Suspenso</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <label style="margin-top:var(--sp-3)">Observações</label>
+      <textarea id="finObs" rows="2" placeholder="Notas internas…"></textarea>
+
+      <div class="section-title" style="margin-top:var(--sp-5)">Registrar pagamento</div>
+      <div class="grid2">
+        <div>
+          <label>Valor pago (R$)</label>
+          <input type="number" id="pagValor" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div>
+          <label>Referência</label>
+          <input type="text" id="pagRef" placeholder="Jun/2026">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:var(--sp-4)">Histórico de pagamentos</div>
+      <div id="finHistorico" style="font-size:var(--text-xs);color:var(--c-text-faint);max-height:150px;overflow-y:auto">—</div>
+
+      <div class="drawer-footer" style="margin-top:var(--sp-5)">
+        <button class="btn btn-ghost btn-sm" onclick="registrarPagamento()">💸 Registrar pagamento</button>
+        <div style="display:flex;gap:var(--sp-2)">
+          <button class="btn btn-ghost" onclick="fecharFin()">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarFin()">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: CONFIGURAÇÕES GLOBAIS -->
-<div class="overlay" id="configOverlay" onclick="if(event.target===this)fecharConfig()">
+<div class="overlay" id="configOverlay" style="align-items:center" onclick="if(event.target===this)fecharConfig()">
   <div class="drawer" style="max-width:500px;height:auto;max-height:80vh">
     <div class="drawer-head">
       <span>⚙️ Configurações globais</span>
@@ -562,8 +789,133 @@ function mostrarApp() {
   document.getElementById('loginWrap').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   carregarBotToken();
+  carregarDashboard();
   carregarClientes();
   setInterval(carregarClientes, 30000);
+  setInterval(carregarDashboard, 60000);
+}
+
+// ─── ABAS DE NÍVEL SUPERIOR ───────────────────────────────
+function trocarTabTop(nome) {
+  ['dashboard','candidatos','financeiro'].forEach(t => {
+    document.getElementById(`ttab-${t}`).classList.toggle('active', t === nome);
+    document.getElementById(`ttab-pane-${t}`).style.display = t === nome ? '' : 'none';
+  });
+  if (nome === 'financeiro') carregarFinanceiro();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────
+let chartLinha   = null;
+let chartCanal   = null;
+let chartRanking = null;
+
+async function carregarDashboard() {
+  try {
+    const [kpis, graficos, alertas] = await Promise.all([
+      api('/dashboard/kpis'),
+      api('/dashboard/graficos'),
+      api('/dashboard/alertas'),
+    ]);
+
+    // KPIs
+    document.getElementById('kv-bot').textContent        = kpis.bot_online ? '🟢 Online' : '🔴 Offline';
+    document.getElementById('kv-candidatos').textContent  = kpis.candidatos_ativos;
+    document.getElementById('kv-pubmes').textContent      = kpis.publicacoes_mes;
+    document.getElementById('kv-pubhoje').textContent     = kpis.publicacoes_hoje;
+    document.getElementById('kv-mrr').textContent         = 'R$ ' + Number(kpis.mrr).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    document.getElementById('kv-inadimp').textContent     = kpis.inadimplentes;
+    document.getElementById('kpi-inadimp').className      = 'card-kpi' + (kpis.inadimplentes > 0 ? ' alerta-aviso' : '');
+    document.getElementById('kpi-bot').className          = 'card-kpi' + (!kpis.bot_online ? ' alerta-erro' : '');
+
+    // Gráfico de linha — publicações por dia
+    const labelsLinha = graficos.por_dia.map(d =>
+      new Date(d.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    );
+    const dataLinha = graficos.por_dia.map(d => d.total);
+    if (chartLinha) chartLinha.destroy();
+    chartLinha = new Chart(document.getElementById('chartLinha'), {
+      type: 'line',
+      data: {
+        labels: labelsLinha,
+        datasets: [{
+          label: 'Publicações', data: dataLinha,
+          borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.12)',
+          fill: true, tension: 0.4, pointRadius: 3,
+        }],
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+      },
+    });
+
+    // Gráfico donut — canais
+    const c = graficos.por_canal;
+    const totalCanal = c.wp + c.wa + c.fb + c.ig;
+    if (chartCanal) chartCanal.destroy();
+    chartCanal = new Chart(document.getElementById('chartCanal'), {
+      type: 'doughnut',
+      data: {
+        labels: ['WordPress', 'WhatsApp', 'Facebook', 'Instagram'],
+        datasets: [{
+          data: [c.wp, c.wa, c.fb, c.ig],
+          backgroundColor: ['#6366f1', '#22c55e', '#3b82f6', '#ec4899'],
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = ctx.raw;
+                const pct = totalCanal > 0 ? Math.round(v / totalCanal * 100) : 0;
+                return ` ${ctx.label}: ${v} (${pct}%)`;
+              },
+            },
+          },
+        },
+        cutout: '65%',
+      },
+    });
+
+    // Gráfico de barras horizontais — ranking
+    if (chartRanking) chartRanking.destroy();
+    chartRanking = new Chart(document.getElementById('chartRanking'), {
+      type: 'bar',
+      data: {
+        labels: graficos.ranking.map(r => r.nome.split(' ').slice(0, 2).join(' ')),
+        datasets: [{
+          data: graficos.ranking.map(r => r.total),
+          backgroundColor: '#2563eb', borderRadius: 4,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+      },
+    });
+
+    // Alertas
+    const ICONE = { erro: '🔴', aviso: '⚠️', info: 'ℹ️' };
+    const html = alertas.length
+      ? alertas.map(a =>
+          `<div style="padding:var(--sp-2) 0;border-bottom:1px solid var(--c-border);display:flex;gap:8px;align-items:flex-start">
+             <span style="flex-shrink:0">${ICONE[a.nivel] || '•'}</span>
+             <div>
+               <div style="font-weight:500;color:var(--c-text)">${esc(a.candidato)}</div>
+               <div style="color:var(--c-text-faint);font-size:var(--text-xs)">${esc(a.mensagem)}</div>
+             </div>
+           </div>`
+        ).join('')
+      : '<div style="padding:var(--sp-4) 0;color:var(--c-text-faint)">✅ Nenhum alerta ativo</div>';
+    document.getElementById('listaAlertas').innerHTML = html;
+
+  } catch (err) {
+    console.error('[dashboard]', err);
+  }
 }
 
 // ─── LISTA CANDIDATOS ─────────────────────────────────────
@@ -992,6 +1344,120 @@ async function carregarPublicacoes() {
           </div>`).join('')
       : '<div class="empty-state">Nenhuma publicação ainda. Envie uma mensagem pelo bot Telegram para começar.</div>';
   } catch(err) { el.innerHTML = `<div class="empty-state" style="color:#f87171">${err.message}</div>`; }
+}
+
+// ─── FINANCEIRO ───────────────────────────────────────────
+const PLANO_LABEL  = { trial: 'Trial', basico: 'Básico', profissional: 'Profissional', premium: 'Premium' };
+const STATUS_BADGE = {
+  ativo:        '<span class="badge ativo">Ativo</span>',
+  trial:        '<span class="badge" style="background:#6366f1;color:#fff">Trial</span>',
+  inadimplente: '<span class="badge inativo">Inadimplente</span>',
+  suspenso:     '<span class="badge" style="background:#64748b;color:#fff">Suspenso</span>',
+  cancelado:    '<span class="badge inativo">Cancelado</span>',
+};
+
+async function carregarFinanceiro() {
+  try {
+    const rows = await api('/financeiro');
+    const mrr      = rows.reduce((s, r) => s + (r.status_pagamento === 'ativo' ? parseFloat(r.valor || 0) : 0), 0);
+    const ativos   = rows.filter(r => r.status_pagamento === 'ativo').length;
+    const inadimp  = rows.filter(r => r.status_pagamento === 'inadimplente').length;
+    const trial    = rows.filter(r => !r.status_pagamento || r.status_pagamento === 'trial').length;
+
+    document.getElementById('fin-mrr').textContent     = 'R$ ' + mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    document.getElementById('fin-ativos').textContent  = ativos;
+    document.getElementById('fin-inadimp').textContent = inadimp;
+    document.getElementById('fin-trial').textContent   = trial;
+    document.getElementById('fin-card-inadimp').className = 'card-kpi' + (inadimp > 0 ? ' alerta-aviso' : '');
+    document.getElementById('btnExportCsv').href = `/api/financeiro/export/csv?token=${TOKEN}`;
+
+    document.getElementById('finTabela').innerHTML = rows.length
+      ? rows.map(r => `
+          <tr>
+            <td><strong>${esc(r.nome)}</strong></td>
+            <td>${esc(PLANO_LABEL[r.plano] || r.plano || '—')}</td>
+            <td>${r.valor ? 'R$ ' + Number(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—'}</td>
+            <td>${r.vencimento_dia ? 'Dia ' + r.vencimento_dia : '—'}</td>
+            <td>${STATUS_BADGE[r.status_pagamento] || '<span class="badge">Sem registro</span>'}</td>
+            <td>${r.ultimo_pagamento ? new Date(r.ultimo_pagamento).toLocaleDateString('pt-BR') : '—'}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="abrirFin(${r.id})">⚙️</button></td>
+          </tr>`
+        ).join('')
+      : '<tr><td colspan="7" style="text-align:center;color:var(--c-text-faint);padding:var(--sp-6)">Nenhum candidato</td></tr>';
+  } catch (err) { toast('Erro ao carregar financeiro: ' + err.message, true); }
+}
+
+async function abrirFin(clienteId) {
+  document.getElementById('finClienteId').value = clienteId;
+  try {
+    const { financeiro, pagamentos } = await api(`/financeiro/${clienteId}`);
+    const f = financeiro || {};
+    document.getElementById('finPlano').value   = f.plano           || 'trial';
+    document.getElementById('finValor').value   = f.valor           || '';
+    document.getElementById('finVencDia').value = f.vencimento_dia  || '';
+    document.getElementById('finForma').value   = f.forma_pagamento || '';
+    document.getElementById('finStatus').value  = f.status          || 'trial';
+    document.getElementById('finObs').value     = f.observacoes     || '';
+    document.getElementById('pagValor').value   = '';
+    document.getElementById('pagRef').value     = '';
+
+    const hist = pagamentos.length
+      ? pagamentos.map(p =>
+          `<div style="padding:4px 0;border-bottom:1px solid var(--c-border)">
+             ${new Date(p.data_pagamento).toLocaleDateString('pt-BR')} —
+             R$ ${Number(p.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+             ${p.referencia ? `<span style="color:var(--c-text-faint)">(${esc(p.referencia)})</span>` : ''}
+           </div>`
+        ).join('')
+      : '<div style="padding:4px 0">Nenhum pagamento registrado</div>';
+    document.getElementById('finHistorico').innerHTML = hist;
+
+    // Busca nome do candidato para o título do modal
+    const todos = await api('/clientes');
+    const cand  = todos.find(x => x.id === clienteId);
+    document.getElementById('finTitulo').textContent = `💰 ${cand?.nome || 'Financeiro'}`;
+  } catch (err) { toast('Erro: ' + err.message, true); return; }
+  document.getElementById('finOverlay').classList.add('open');
+}
+
+function fecharFin() { document.getElementById('finOverlay').classList.remove('open'); }
+
+async function salvarFin() {
+  const id = document.getElementById('finClienteId').value;
+  try {
+    await api(`/financeiro/${id}`, {
+      method: 'POST',
+      body: {
+        plano:           document.getElementById('finPlano').value,
+        valor:           parseFloat(document.getElementById('finValor').value)   || 0,
+        vencimento_dia:  parseInt(document.getElementById('finVencDia').value)   || 10,
+        forma_pagamento: document.getElementById('finForma').value               || null,
+        status:          document.getElementById('finStatus').value,
+        observacoes:     document.getElementById('finObs').value                 || null,
+      },
+    });
+    fecharFin();
+    toast('Configuração financeira salva!');
+    carregarFinanceiro();
+    carregarDashboard();
+  } catch (err) { toast('Erro: ' + err.message, true); }
+}
+
+async function registrarPagamento() {
+  const id    = document.getElementById('finClienteId').value;
+  const valor = parseFloat(document.getElementById('pagValor').value);
+  const ref   = document.getElementById('pagRef').value.trim();
+  if (!valor || valor <= 0) return toast('Informe o valor do pagamento', true);
+  try {
+    await api(`/financeiro/${id}/pagamentos`, {
+      method: 'POST',
+      body: { valor, referencia: ref || null },
+    });
+    toast('Pagamento registrado!');
+    abrirFin(parseInt(id));
+    carregarFinanceiro();
+    carregarDashboard();
+  } catch (err) { toast('Erro: ' + err.message, true); }
 }
 
 // ─── CONFIGURAÇÕES GLOBAIS ────────────────────────────────

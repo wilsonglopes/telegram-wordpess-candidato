@@ -436,8 +436,12 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
 
   // 4. Registra
   await query(
-    `INSERT INTO publicacoes (cliente_id, titulo, wp_post_url, status) VALUES ($1, $2, $3, 'publicado')`,
-    [cliente.id, materia.titulo, post.link]
+    `INSERT INTO publicacoes (cliente_id, titulo, wp_post_url, status, canal_wp, canal_wa, canal_fb, canal_ig)
+     VALUES ($1, $2, $3, 'publicado', true, $4, $5, $6)`,
+    [cliente.id, materia.titulo, post.link,
+     publicados.includes('📱 WhatsApp'),
+     publicados.includes('📘 Facebook'),
+     publicados.includes('📸 Instagram')]
   );
 
   limparSessao(cliente.id, userId);
@@ -525,4 +529,4 @@ async function verificarRelatorioSemanal() {
   } catch (err) { console.error('[relatorio] Erro:', err.message); }
 }
 
-module.exports = { iniciarBots, iniciarBot, pararBot, reiniciarBot, verificarRelatorioSemanal };
+module.exports = { botsAtivos, iniciarBots, iniciarBot, pararBot, reiniciarBot, verificarRelatorioSemanal };

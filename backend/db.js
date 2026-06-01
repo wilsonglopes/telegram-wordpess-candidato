@@ -83,6 +83,40 @@ async function migrate() {
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS user_email         TEXT UNIQUE`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS user_password_hash TEXT`);
 
+  // Controle financeiro
+  await query(`
+    CREATE TABLE IF NOT EXISTS financeiro (
+      id              SERIAL PRIMARY KEY,
+      cliente_id      INTEGER UNIQUE NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+      plano           TEXT NOT NULL DEFAULT 'basico',
+      valor           DECIMAL(10,2) NOT NULL DEFAULT 0,
+      vencimento_dia  INTEGER NOT NULL DEFAULT 10,
+      status          TEXT NOT NULL DEFAULT 'trial',
+      forma_pagamento TEXT,
+      observacoes     TEXT,
+      criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS pagamentos (
+      id              SERIAL PRIMARY KEY,
+      cliente_id      INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+      valor           DECIMAL(10,2) NOT NULL,
+      data_pagamento  DATE NOT NULL DEFAULT CURRENT_DATE,
+      referencia      TEXT,
+      status          TEXT NOT NULL DEFAULT 'pago',
+      observacoes     TEXT,
+      criado_em       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Registra em quais canais cada publicação foi distribuída
+  await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_wp BOOLEAN DEFAULT true`);
+  await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_wa BOOLEAN DEFAULT false`);
+  await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_fb BOOLEAN DEFAULT false`);
+  await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_ig BOOLEAN DEFAULT false`);
+
   console.log('[db] Migrations OK');
 }
 
