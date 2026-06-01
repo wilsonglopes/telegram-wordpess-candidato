@@ -63,8 +63,8 @@ app.get('/painel*', (_, res) => res.sendFile(path.join(__dirname, '../frontend/p
 // Serve página de conexão QR (sem login)
 app.get('/conectar/:token', (_, res) => res.sendFile(path.join(__dirname, '../frontend/conectar/index.html')));
 
-// Redireciona raiz para o painel admin
-app.get('/', (_, res) => res.redirect('/admin'));
+// Landing page de vendas
+app.get('/', (_, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
 async function monitorarWhatsApp() {
   try {
