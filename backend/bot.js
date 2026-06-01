@@ -29,6 +29,11 @@ const botsAtivos = new Map(); // chave: '_bot' (único bot global)
 // chave: `${clienteId}:${telegramUserId}`
 const sessoes = new Map();
 
+// Candidato ativo por assessor — persiste durante a vida do processo.
+// Necessário quando um assessor presta assessoria a mais de um candidato.
+// chave: telegram_user_id (number) → cliente_id (number)
+const candidatoAtivo = new Map();
+
 function chave(clienteId, userId) { return `${clienteId}:${userId}`; }
 
 function getSessao(clienteId, userId) {
@@ -83,19 +88,59 @@ function textoPrevia(materia, canais) {
 
 // ── INICIALIZAÇÃO ──────────────────────────────────────────────────────────────
 
-// Busca o candidato de um assessor pelo telegram_user_id.
-// Retorna o objeto cliente completo ou null se não autorizado.
+// Resolve qual candidato o assessor está operando agora.
+// Retornos possíveis:
+//   null                          → não autorizado (nenhum vínculo ativo)
+//   { selecionar, candidatos }    → precisa escolher (múltiplos candidatos, nenhum ativo)
+//   objeto cliente                → candidato único ou já selecionado
 async function resolverCliente(userId) {
+  // Se já tem candidato ativo em memória, carrega e retorna
+  if (candidatoAtivo.has(userId)) {
+    const { rows } = await query(
+      `SELECT * FROM clientes WHERE id = $1 AND ativo = true`,
+      [candidatoAtivo.get(userId)]
+    );
+    if (rows[0]) return rows[0];
+    // Candidato foi desativado desde a última seleção — limpa e reprocessa
+    candidatoAtivo.delete(userId);
+  }
+
+  // Busca todos os candidatos vinculados a este assessor
   const { rows } = await query(
-    `SELECT a.cliente_id FROM assessores a
+    `SELECT a.cliente_id, c.nome FROM assessores a
      JOIN clientes c ON c.id = a.cliente_id
      WHERE a.telegram_user_id = $1 AND a.ativo = true AND c.ativo = true
-     LIMIT 1`,
+     ORDER BY c.nome`,
     [userId]
   );
-  if (!rows.length) return null;
-  const { rows: cr } = await query(`SELECT * FROM clientes WHERE id = $1`, [rows[0].cliente_id]);
-  return cr[0] || null;
+
+  if (!rows.length) return null; // Não autorizado
+
+  if (rows.length === 1) {
+    // Único candidato — registra como ativo automaticamente
+    const { rows: cr } = await query(`SELECT * FROM clientes WHERE id = $1`, [rows[0].cliente_id]);
+    if (cr[0]) candidatoAtivo.set(userId, cr[0].id);
+    return cr[0] || null;
+  }
+
+  // Múltiplos candidatos — precisa de seleção explícita
+  return { selecionar: true, candidatos: rows };
+}
+
+// Exibe menu inline para o assessor escolher com qual candidato vai trabalhar.
+function mostrarSelecaoCandidato(bot, chatId, candidatos) {
+  return bot.sendMessage(chatId,
+    '👥 <b>Você assessora mais de um candidato.</b>\n\nPara qual você está enviando agora?',
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: candidatos.map(c => [{
+          text: `👤 ${c.nome}`,
+          callback_data: `sel_cand_${c.cliente_id}`,
+        }]),
+      },
+    }
+  );
 }
 
 async function iniciarBots() {
@@ -147,13 +192,37 @@ async function reiniciarBot(novoToken) {
 async function processarMensagem(bot, msg) {
   const userId = msg.from?.id;
   const chatId = msg.chat.id;
+  const texto  = msg.text || msg.caption || '';
 
-  const cliente = await resolverCliente(userId);
-  if (!cliente) {
+  // /trocar — limpa candidato ativo e força nova seleção
+  if (texto === '/trocar') {
+    candidatoAtivo.delete(userId);
+    const resultado = await resolverCliente(userId);
+    if (!resultado) {
+      return bot.sendMessage(chatId, '⛔ Você não está autorizado. Fale com o administrador.');
+    }
+    if (resultado.selecionar) {
+      return mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
+    }
+    // Assessor tem apenas 1 candidato — não há o que trocar
+    return bot.sendMessage(chatId,
+      `↩️ Você assessora apenas <b>${esc(resultado.nome)}</b>. Nada para trocar.`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  const resultado = await resolverCliente(userId);
+
+  if (!resultado) {
     return bot.sendMessage(chatId, '⛔ Você não está autorizado. Fale com o administrador.');
   }
 
-  const texto = msg.text || msg.caption || '';
+  // Assessor tem múltiplos candidatos e ainda não selecionou um
+  if (resultado.selecionar) {
+    return mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
+  }
+
+  const cliente = resultado;
   const sessao = getSessao(cliente.id, userId);
 
   // ── COMANDOS ────────────────────────────────────────────────────
@@ -171,6 +240,7 @@ async function processarMensagem(bot, msg) {
       `/limpar — descarta o rascunho atual\n` +
       `/status — status da conexão\n` +
       `/grupos — grupos de WhatsApp ativos\n` +
+      `/trocar — trocar de candidato (se assessora mais de um)\n` +
       `/ajuda — esta mensagem`,
       { parse_mode: 'HTML' }
     );
@@ -285,11 +355,45 @@ async function processarCallback(bot, cbQuery) {
   const chatId = cbQuery.message.chat.id;
   const data   = cbQuery.data;
 
-  const cliente = await resolverCliente(userId);
-  if (!cliente) {
-    return bot.answerCallbackQuery(cbQuery.id, { text: '⛔ Não autorizado.' });
+  // Seleção de candidato — tratada ANTES de resolverCliente porque é justamente
+  // o callback que define qual candidato ficará ativo em candidatoAtivo.
+  if (data.startsWith('sel_cand_')) {
+    const clienteId = parseInt(data.replace('sel_cand_', ''), 10);
+    // Garante que este assessor realmente está vinculado ao candidato clicado
+    const { rows: auth } = await query(
+      `SELECT 1 FROM assessores
+       WHERE telegram_user_id = $1 AND cliente_id = $2 AND ativo = true`,
+      [userId, clienteId]
+    );
+    if (!auth.length) {
+      return bot.answerCallbackQuery(cbQuery.id, { text: '⛔ Não autorizado.' });
+    }
+    const { rows: cr } = await query(
+      `SELECT nome FROM clientes WHERE id = $1 AND ativo = true`,
+      [clienteId]
+    );
+    if (!cr[0]) {
+      return bot.answerCallbackQuery(cbQuery.id, { text: '❌ Candidato não encontrado.' });
+    }
+    candidatoAtivo.set(userId, clienteId);
+    await bot.answerCallbackQuery(cbQuery.id, { text: `✅ ${cr[0].nome}` });
+    await bot.editMessageText(
+      `✅ Trabalhando para <b>${esc(cr[0].nome)}</b>.\n\nAgora envie textos, fotos ou áudios normalmente.\nUse /trocar para mudar de candidato.`,
+      { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML' }
+    );
+    return;
   }
 
+  const resultado = await resolverCliente(userId);
+  if (!resultado) {
+    return bot.answerCallbackQuery(cbQuery.id, { text: '⛔ Não autorizado.' });
+  }
+  if (resultado.selecionar) {
+    await bot.answerCallbackQuery(cbQuery.id);
+    return mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
+  }
+
+  const cliente = resultado;
   const sessao = getSessao(cliente.id, userId);
 
   // Para toggles e cancelar: responde imediatamente (operações rápidas)
