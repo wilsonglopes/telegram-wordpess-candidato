@@ -5,7 +5,7 @@ const bcrypt  = require('bcryptjs');
 const { query } = require('../db');
 const { authMiddleware } = require('./auth');
 const { criarInstancia } = require('../connectors/evolution');
-const { iniciarBot, pararBot } = require('../bot');
+const { botsAtivos } = require('../bot');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -14,11 +14,11 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
   try {
     const { rows } = await query(`
-      SELECT id, nome, slug, wp_url, whatsapp_status, ativo, criado_em,
-        (telegram_bot_token IS NOT NULL AND telegram_bot_token != '') AS tem_bot
+      SELECT id, nome, slug, wp_url, whatsapp_status, ativo, criado_em
       FROM clientes ORDER BY criado_em DESC
     `);
-    res.json(rows);
+    const temBot = botsAtivos.has('_bot');
+    res.json(rows.map(r => ({ ...r, tem_bot: temBot })));
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
@@ -41,7 +41,7 @@ router.get('/:id', async (req, res) => {
 // Cria novo cliente
 router.post('/', async (req, res) => {
   try {
-    const { nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, telegram_bot_token, ai_prompt } = req.body;
+    const { nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, ai_prompt } = req.body;
     if (!nome || !slug || !wp_url) {
       return res.status(400).json({ erro: 'Campos obrigatórios: nome, slug, wp_url' });
     }
@@ -52,9 +52,9 @@ router.post('/', async (req, res) => {
     const instancia = `candidato-${slug}`;
 
     const { rows } = await query(
-      `INSERT INTO clientes (nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, evolution_instancia, telegram_bot_token, ai_prompt)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [nome, slug, wp_url, wp_plugin_key || null, wp_usuario || null, wp_senha || null, instancia, telegram_bot_token || null, ai_prompt || null]
+      `INSERT INTO clientes (nome, slug, wp_url, wp_plugin_key, wp_usuario, wp_senha, evolution_instancia, ai_prompt)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [nome, slug, wp_url, wp_plugin_key || null, wp_usuario || null, wp_senha || null, instancia, ai_prompt || null]
     );
 
     // Cria instância na Evolution API
@@ -62,11 +62,6 @@ router.post('/', async (req, res) => {
       await criarInstancia(instancia);
     } catch (err) {
       console.warn('[clientes] Evolution API não disponível ainda:', err.message);
-    }
-
-    // Inicia bot Telegram se token fornecido
-    if (telegram_bot_token) {
-      try { iniciarBot(rows[0]); } catch {}
     }
 
     res.status(201).json({ id: rows[0].id, token_qr: rows[0].token_qr });
@@ -78,7 +73,7 @@ router.post('/', async (req, res) => {
 // Atualiza cliente
 router.patch('/:id', async (req, res) => {
   try {
-    const campos = ['nome', 'wp_url', 'wp_plugin_key', 'wp_usuario', 'wp_senha', 'telegram_bot_token', 'ai_prompt', 'ativo', 'fb_page_id', 'fb_access_token', 'ig_user_id', 'wp_post_format', 'social_template', 'logo_url', 'brand_color', 'gerar_card'];
+    const campos = ['nome', 'wp_url', 'wp_plugin_key', 'wp_usuario', 'wp_senha', 'ai_prompt', 'ativo', 'fb_page_id', 'fb_access_token', 'ig_user_id', 'wp_post_format', 'social_template', 'logo_url', 'brand_color', 'gerar_card'];
     const updates = [];
     const values  = [];
     let i = 1;
@@ -93,15 +88,6 @@ router.patch('/:id', async (req, res) => {
     if (updates.length > 0) {
       values.push(req.params.id);
       await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
-    }
-
-    // Hot-reload: reinicia o bot se o token Telegram mudou
-    if (req.body.telegram_bot_token !== undefined) {
-      pararBot(Number(req.params.id));
-      if (req.body.telegram_bot_token) {
-        const { rows } = await query(`SELECT * FROM clientes WHERE id = $1`, [req.params.id]);
-        if (rows[0]) try { iniciarBot(rows[0]); } catch {}
-      }
     }
 
     // Credenciais de acesso do usuário (admin pode definir/redefinir)
