@@ -83,8 +83,23 @@ async function monitorarWhatsApp() {
   }
 }
 
+async function seedAdminInicial() {
+  const bcrypt = require('bcryptjs');
+  const { rows } = await query(`SELECT COUNT(*) AS c FROM admins`);
+  if (parseInt(rows[0].c) > 0) return; // já tem admins, não faz nada
+
+  const email = settings.admin_email || 'admin@admin.local';
+  const hash  = bcrypt.hashSync(settings.admin_password, 10);
+  await query(
+    `INSERT INTO admins (nome, email, password_hash) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    ['Administrador', email, hash]
+  );
+  console.log(`[seed] Admin inicial criado → e-mail: ${email}`);
+}
+
 async function start() {
   await migrate();
+  await seedAdminInicial();
   await iniciarBots();
   app.listen(PORT, () => console.log(`[server] Plataforma Candidatos rodando na porta ${PORT}`));
   // Monitoramento de status WhatsApp a cada 5 minutos

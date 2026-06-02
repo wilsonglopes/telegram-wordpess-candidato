@@ -185,9 +185,11 @@
         <p>Painel administrativo</p>
       </div>
     </div>
-    <label>Senha de acesso</label>
+    <label>E-mail <span style="color:var(--c-text-faint);font-weight:400;font-size:var(--text-xs)">(deixe em branco para acesso legado)</span></label>
+    <input type="email" id="emailInput" placeholder="admin@exemplo.com" onkeydown="if(event.key==='Enter')login()">
+    <label style="margin-top:var(--sp-3)">Senha</label>
     <input type="password" id="senhaInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')login()">
-    <button class="btn btn-primary" style="width:100%;margin-top:var(--sp-2)" onclick="login()">Entrar</button>
+    <button class="btn btn-primary" style="width:100%;margin-top:var(--sp-3)" onclick="login()">Entrar</button>
     <div class="erro" id="loginErro"></div>
   </div>
 </div>
@@ -213,6 +215,7 @@
         <button class="tab-top-btn active" id="ttab-dashboard"  onclick="trocarTabTop('dashboard')">📊 Dashboard</button>
         <button class="tab-top-btn"        id="ttab-candidatos" onclick="trocarTabTop('candidatos')">👥 Candidatos</button>
         <button class="tab-top-btn"        id="ttab-financeiro" onclick="trocarTabTop('financeiro')">💰 Financeiro</button>
+        <button class="tab-top-btn"        id="ttab-admins"     onclick="trocarTabTop('admins')">🔐 Administradores</button>
       </div>
       <span id="ultimaAtual" style="font-size:var(--text-xs);color:var(--c-text-faint);padding-right:var(--sp-2)"></span>
     </div>
@@ -346,6 +349,41 @@
         </div>
       </div>
     </div>
+
+    <!-- ── PANE: ADMINISTRADORES ── -->
+    <div id="ttab-pane-admins" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-5)">
+        <div>
+          <h2 style="font-size:var(--text-base);font-weight:700;margin:0">🔐 Administradores</h2>
+          <p style="font-size:var(--text-xs);color:var(--c-text-faint);margin:4px 0 0">Gerencie quem pode acessar este painel.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="abrirNovoAdmin()">+ Novo administrador</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Criado em</th><th></th></tr></thead>
+            <tbody id="adminsTabela"><tr><td colspan="5" style="text-align:center;color:var(--c-text-faint);padding:var(--sp-6)">Carregando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="novoAdminForm" style="display:none;margin-top:var(--sp-5)">
+        <div class="card" style="padding:var(--sp-5)">
+          <div style="font-weight:600;margin-bottom:var(--sp-4)">Novo administrador</div>
+          <div class="grid2">
+            <div><label>Nome</label><input type="text" id="aNomeAdmin" placeholder="João Silva"></div>
+            <div><label>E-mail</label><input type="email" id="aEmailAdmin" placeholder="joao@empresa.com"></div>
+          </div>
+          <label>Senha <span style="font-size:var(--text-xs);color:var(--c-text-faint);font-weight:400">(mínimo 8 caracteres)</span></label>
+          <input type="password" id="aSenhaAdmin" placeholder="••••••••">
+          <div style="display:flex;gap:var(--sp-3);justify-content:flex-end;margin-top:var(--sp-4)">
+            <button class="btn btn-ghost btn-sm" onclick="fecharNovoAdmin()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="criarAdmin()">Criar administrador</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -782,13 +820,15 @@ function toast(msg, erro = false) {
 
 // ─── AUTH ─────────────────────────────────────────────────
 async function login() {
+  const email = document.getElementById('emailInput').value.trim();
   const senha = document.getElementById('senhaInput').value;
+  const body  = email ? { email, senha } : { senha };
   try {
-    const { token } = await api('/auth/login', { method: 'POST', body: { senha } });
+    const { token } = await api('/auth/login', { method: 'POST', body });
     TOKEN = token;
     localStorage.setItem('admin_token', token);
     mostrarApp();
-  } catch { document.getElementById('loginErro').textContent = 'Senha incorreta'; }
+  } catch { document.getElementById('loginErro').textContent = 'E-mail ou senha inválidos'; }
 }
 function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.reload(); }
 let globalBotToken = '';
@@ -815,11 +855,12 @@ function mostrarApp() {
 
 // ─── ABAS DE NÍVEL SUPERIOR ───────────────────────────────
 function trocarTabTop(nome) {
-  ['dashboard','candidatos','financeiro'].forEach(t => {
+  ['dashboard','candidatos','financeiro','admins'].forEach(t => {
     document.getElementById(`ttab-${t}`).classList.toggle('active', t === nome);
     document.getElementById(`ttab-pane-${t}`).style.display = t === nome ? '' : 'none';
   });
   if (nome === 'financeiro') carregarFinanceiro();
+  if (nome === 'admins')     carregarAdmins();
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────
@@ -1064,7 +1105,6 @@ async function salvarDados() {
     wp_usuario:         document.getElementById('dWpUsuario').value      || null,
     wp_post_format:     document.getElementById('dPostFormat').value     || 'editorial',
     social_template:    document.getElementById('dSocialTemplate').value || 'padrao',
-    telegram_bot_token: document.getElementById('dBotToken').value       || null,
     ai_prompt:          document.getElementById('dPrompt').value         || null,
   };
   const wp_senha = document.getElementById('dWpSenha').value;
@@ -1559,7 +1599,6 @@ async function criarCandidato() {
     wp_plugin_key:      document.getElementById('nPluginKey').value.trim() || undefined,
     wp_usuario:         document.getElementById('nWpUsuario').value.trim() || undefined,
     wp_senha:           document.getElementById('nWpSenha').value.trim()   || undefined,
-    telegram_bot_token: document.getElementById('nBotToken').value.trim()  || undefined,
     ai_prompt:          document.getElementById('nPrompt').value.trim()    || undefined,
   };
   if (!body.nome || !body.slug || !body.wp_url)
@@ -1573,6 +1612,71 @@ async function criarCandidato() {
     ['nNome','nSlug','nWpUrl','nWpUsuario','nWpSenha','nBotToken','nPrompt'].forEach(id => document.getElementById(id).value = '');
     carregarClientes();
     setTimeout(() => abrirDetalhe(r.id), 500);
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+// ─── ADMINISTRADORES ──────────────────────────────────────
+async function carregarAdmins() {
+  const tbody = document.getElementById('adminsTabela');
+  try {
+    const lista = await api('/auth/admins');
+    tbody.innerHTML = lista.map(a => `
+      <tr>
+        <td><strong>${esc(a.nome)}</strong></td>
+        <td style="font-family:monospace;font-size:var(--text-xs)">${esc(a.email)}</td>
+        <td><span class="badge ${a.ativo ? 'conectado' : 'desconectado'}">${a.ativo ? 'ativo' : 'inativo'}</span></td>
+        <td style="font-size:var(--text-xs);color:var(--c-text-faint)">${new Date(a.criado_em).toLocaleDateString('pt-BR')}</td>
+        <td>
+          <div style="display:flex;gap:var(--sp-2)">
+            <button class="btn btn-ghost btn-sm" onclick="resetSenhaAdmin(${a.id},'${esc(a.nome)}')">🔑 Resetar senha</button>
+            <button class="btn btn-danger btn-sm" onclick="removerAdmin(${a.id},'${esc(a.nome)}')">Remover</button>
+          </div>
+        </td>
+      </tr>`).join('') ||
+      '<tr><td colspan="5" style="text-align:center;color:var(--c-text-faint);padding:var(--sp-6)">Nenhum administrador cadastrado.</td></tr>';
+  } catch(err) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#f87171;padding:var(--sp-4)">${err.message}</td></tr>`;
+  }
+}
+
+function abrirNovoAdmin() {
+  document.getElementById('novoAdminForm').style.display = 'block';
+  document.getElementById('aNomeAdmin').focus();
+}
+function fecharNovoAdmin() {
+  document.getElementById('novoAdminForm').style.display = 'none';
+  ['aNomeAdmin','aEmailAdmin','aSenhaAdmin'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function criarAdmin() {
+  const nome  = document.getElementById('aNomeAdmin').value.trim();
+  const email = document.getElementById('aEmailAdmin').value.trim();
+  const senha = document.getElementById('aSenhaAdmin').value;
+  if (!nome || !email || !senha) return toast('Preencha nome, e-mail e senha', true);
+  try {
+    await api('/auth/admins', { method: 'POST', body: { nome, email, senha } });
+    fecharNovoAdmin();
+    toast(`Administrador ${nome} criado!`);
+    carregarAdmins();
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function resetSenhaAdmin(id, nome) {
+  const novaSenha = prompt(`Nova senha para ${nome} (mínimo 8 caracteres):`);
+  if (!novaSenha) return;
+  if (novaSenha.length < 8) return toast('Senha deve ter no mínimo 8 caracteres', true);
+  try {
+    await api(`/auth/admins/${id}`, { method: 'PATCH', body: { senha: novaSenha } });
+    toast(`Senha de ${nome} atualizada!`);
+  } catch(err) { toast('Erro: ' + err.message, true); }
+}
+
+async function removerAdmin(id, nome) {
+  if (!confirm(`Remover o administrador "${nome}"? Esta ação não pode ser desfeita.`)) return;
+  try {
+    await api(`/auth/admins/${id}`, { method: 'DELETE' });
+    toast(`${nome} removido`);
+    carregarAdmins();
   } catch(err) { toast('Erro: ' + err.message, true); }
 }
 

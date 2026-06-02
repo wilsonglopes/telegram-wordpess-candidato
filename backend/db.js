@@ -117,6 +117,18 @@ async function migrate() {
   await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_fb BOOLEAN DEFAULT false`);
   await query(`ALTER TABLE publicacoes ADD COLUMN IF NOT EXISTS canal_ig BOOLEAN DEFAULT false`);
 
+  // Administradores do sistema (multi-admin)
+  await query(`
+    CREATE TABLE IF NOT EXISTS admins (
+      id            SERIAL PRIMARY KEY,
+      nome          TEXT NOT NULL,
+      email         TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      ativo         BOOLEAN NOT NULL DEFAULT true,
+      criado_em     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   console.log('[db] Migrations OK');
 }
 
