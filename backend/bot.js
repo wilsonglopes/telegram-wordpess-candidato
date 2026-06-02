@@ -36,6 +36,17 @@ const sessoes = new Map();
 // chave: telegram_user_id (number) → cliente_id (number)
 const candidatoAtivo = new Map();
 
+// ── REPLY KEYBOARD (botões no rodapé do chat) ──────────────────────────────────
+const BTN_GERAR  = '✨ Gerar matéria';
+const BTN_LIMPAR = '🗑️ Limpar rascunho';
+
+const TECLADO_RASCUNHO = {
+  keyboard: [[{ text: BTN_GERAR }, { text: BTN_LIMPAR }]],
+  resize_keyboard: true,
+};
+
+const REMOVER_TECLADO = { remove_keyboard: true };
+
 function chave(clienteId, userId) { return `${clienteId}:${userId}`; }
 
 function getSessao(clienteId, userId) {
@@ -282,12 +293,14 @@ async function processarMensagem(bot, msg) {
   if (texto === '/status') return cmdStatus(bot, cliente, chatId);
   if (texto === '/grupos') return cmdGrupos(bot, cliente, chatId);
 
-  if (texto === '/limpar') {
+  if (texto === '/limpar' || texto === BTN_LIMPAR) {
     if (sessao.videoLocal) {
       try { fs.unlinkSync(sessao.videoLocal); } catch {}
     }
     limparSessao(cliente.id, userId);
-    return bot.sendMessage(chatId, '🗑️ Rascunho descartado. Pode começar de novo.');
+    return bot.sendMessage(chatId, '🗑️ Rascunho descartado. Pode começar de novo.', {
+      reply_markup: REMOVER_TECLADO,
+    });
   }
 
   if (texto === '/publicar_video') {
@@ -314,7 +327,7 @@ async function processarMensagem(bot, msg) {
     return bot.sendMessage(chatId, resumo, { parse_mode: 'HTML' });
   }
 
-  if (texto === '/gerar') {
+  if (texto === '/gerar' || texto === BTN_GERAR) {
     return gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao);
   }
 
@@ -340,9 +353,10 @@ async function processarMensagem(bot, msg) {
       const transcricao = whisper.data?.text;
       if (!transcricao) return bot.editMessageText('❌ Não foi possível transcrever.', { chat_id: chatId, message_id: transcrevendo.message_id });
       sessao.textos.push(transcricao);
-      return bot.editMessageText(
-        `🎤 <b>Transcrição adicionada ao rascunho:</b>\n<i>${esc(transcricao)}</i>\n\nEnvie mais material ou /gerar para criar a matéria.`,
-        { chat_id: chatId, message_id: transcrevendo.message_id, parse_mode: 'HTML' }
+      bot.deleteMessage(chatId, transcrevendo.message_id).catch(() => {});
+      return bot.sendMessage(chatId,
+        `🎤 <b>Transcrição adicionada ao rascunho:</b>\n<i>${esc(transcricao)}</i>`,
+        { parse_mode: 'HTML', reply_markup: TECLADO_RASCUNHO }
       );
     } catch (err) {
       return bot.editMessageText(`❌ Erro na transcrição: ${err.message}`, { chat_id: chatId, message_id: transcrevendo.message_id });
@@ -416,7 +430,8 @@ async function processarMensagem(bot, msg) {
     sessao.imagemUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
     if (texto) sessao.textos.push(texto);
     return bot.sendMessage(chatId,
-      `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.\nEnvie mais material ou /gerar para criar a matéria.`
+      `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.`,
+      { reply_markup: TECLADO_RASCUNHO }
     );
   }
 
@@ -440,13 +455,18 @@ async function processarMensagem(bot, msg) {
     }
 
     return bot.sendMessage(chatId,
-      `📝 Texto adicionado ao rascunho (${sessao.textos.length} texto(s) acumulado(s)).\nEnvie mais ou /gerar para criar a matéria.`
+      `📝 Texto adicionado (${sessao.textos.length} texto(s) no rascunho).`,
+      { reply_markup: TECLADO_RASCUNHO }
     );
   }
 
   // Mensagem não reconhecida
+  const temConteudo = sessao.textos.length > 0 || !!sessao.imagemUrl || !!sessao.videoUrl;
   return bot.sendMessage(chatId,
-    '📋 Envie textos, fotos ou áudios para acumular o material.\nDigite /gerar quando quiser criar a matéria.\nUse /ajuda para ver todos os comandos.'
+    temConteudo
+      ? `📋 Rascunho: ${sessao.textos.length} texto(s)${sessao.imagemUrl ? ' + foto' : ''}.\nToque em ${BTN_GERAR} quando estiver pronto.`
+      : '📋 Envie textos, fotos ou áudios para acumular o material.\nUse /ajuda para ver todos os comandos.',
+    temConteudo ? { reply_markup: TECLADO_RASCUNHO } : {}
   );
 }
 
@@ -454,12 +474,16 @@ async function processarMensagem(bot, msg) {
 async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
   if (!sessao.textos.length && !sessao.imagemUrl) {
     return bot.sendMessage(chatId,
-      '⚠️ Rascunho vazio! Envie textos, fotos ou áudios antes de /gerar.'
+      '⚠️ Rascunho vazio! Envie textos, fotos ou áudios antes de gerar.',
+      { reply_markup: REMOVER_TECLADO }
     );
   }
 
   sessao.stage = 'confirming';
-  const gerando = await bot.sendMessage(chatId, '⏳ Gerando matéria com IA…');
+  // Remove o reply keyboard e mostra "Gerando…" ao mesmo tempo
+  const gerando = await bot.sendMessage(chatId, '⏳ Gerando matéria com IA…', {
+    reply_markup: REMOVER_TECLADO,
+  });
 
   const textoCompleto = sessao.textos.join('\n\n');
   const materia = await gerarMateria({ texto: textoCompleto, prompt: cliente.ai_prompt });
