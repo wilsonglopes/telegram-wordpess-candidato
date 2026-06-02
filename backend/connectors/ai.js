@@ -35,6 +35,37 @@ async function gerarMateria({ texto, prompt }) {
   };
 }
 
+// Parser tolerante — lida com blocos markdown e aspas não-escapadas
+function parseJsonIA(raw) {
+  const limpo = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')  // remove ```json ou ```
+    .replace(/\s*```$/, '')
+    .trim();
+
+  // Tentativa 1: parse direto
+  try { return JSON.parse(limpo); } catch {}
+
+  // Tentativa 2: extrai o primeiro objeto { ... } da string
+  const match = limpo.match(/\{[\s\S]*\}/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch {}
+  }
+
+  // Tentativa 3: corrige quebras de linha dentro de strings JSON
+  // (causa mais comum do "Expected ',' or '}'" em textos HTML)
+  try {
+    const corrigido = limpo.replace(
+      /"(corpo|body|content)":\s*"([\s\S]*?)(?<!\\)"/g,
+      (_, k, v) => `"${k}": "${v.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/(?<!\\)"/g, '\\"')}"`
+    );
+    const m2 = corrigido.match(/\{[\s\S]*\}/);
+    if (m2) return JSON.parse(m2[0]);
+  } catch {}
+
+  throw new Error('A IA retornou JSON inválido. Tente novamente em alguns segundos.');
+}
+
 async function gerarDeepSeek(texto, systemPrompt) {
   const r = await axios.post('https://api.deepseek.com/chat/completions', {
     model: 'deepseek-chat',
@@ -47,7 +78,7 @@ async function gerarDeepSeek(texto, systemPrompt) {
     headers: { Authorization: `Bearer ${settings.deepseek_api_key}` },
     timeout: 60000,
   });
-  return JSON.parse(r.data.choices[0].message.content);
+  return parseJsonIA(r.data.choices[0].message.content);
 }
 
 async function gerarOpenAI(texto, systemPrompt) {
@@ -62,7 +93,7 @@ async function gerarOpenAI(texto, systemPrompt) {
     headers: { Authorization: `Bearer ${settings.openai_api_key}` },
     timeout: 60000,
   });
-  return JSON.parse(r.data.choices[0].message.content);
+  return parseJsonIA(r.data.choices[0].message.content);
 }
 
 const PROMPT_LEGENDA_VIDEO = `Você é um assessor de comunicação política.
