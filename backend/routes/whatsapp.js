@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { query } = require('../db');
-const { obterQRCode, statusConexao, listarGrupos } = require('../connectors/evolution');
+const { obterQRCode, statusConexao, listarGrupos, desconectarInstancia } = require('../connectors/evolution');
 
 const router = express.Router();
 
@@ -27,8 +27,27 @@ router.get('/qr/:token', async (req, res) => {
   }
 });
 
-// Rota autenticada — lista grupos disponíveis para cadastrar
+// Rota autenticada — desconecta WhatsApp da instância
 const { authMiddleware } = require('./auth');
+
+router.delete('/desconectar/:clienteId', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT evolution_instancia FROM clientes WHERE id = $1 AND ativo = true`,
+      [req.params.clienteId]
+    );
+    if (!rows[0]) return res.status(404).json({ erro: 'Cliente não encontrado' });
+
+    await desconectarInstancia(rows[0].evolution_instancia);
+    await query(`UPDATE clientes SET whatsapp_status = 'pendente' WHERE id = $1`, [req.params.clienteId]);
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// Rota autenticada — lista grupos disponíveis para cadastrar
 router.get('/grupos/:clienteId', authMiddleware, async (req, res) => {
   try {
     const { rows } = await query(`SELECT evolution_instancia FROM clientes WHERE id = $1`, [req.params.clienteId]);

@@ -560,6 +560,7 @@
           </div>
           <div style="display:flex;gap:var(--sp-2)">
             <button class="btn btn-wa btn-sm" id="btnConectarWA" onclick="conectarWA()">📱 Conectar / Gerar QR</button>
+            <button class="btn btn-danger btn-sm" id="btnDesconectarWA" onclick="desconectarWA()">⛔ Desconectar</button>
             <button class="btn btn-ghost btn-sm" onclick="atualizarStatusWA()">⟳ Atualizar</button>
           </div>
         </div>
@@ -1335,6 +1336,25 @@ async function atualizarStatusWA() {
     const status = c.whatsapp_status || 'pendente';
     badge.innerHTML = `<span class="badge ${status}">${status}</span>`;
   } catch { badge.innerHTML = '<span class="badge desconectado">erro</span>'; }
+}
+
+async function desconectarWA() {
+  if (!confirm('Desconectar o WhatsApp desta instância? O celular continuará com o número ativo, apenas o vínculo com o sistema será removido.')) return;
+  const btn = document.getElementById('btnDesconectarWA');
+  btn.disabled = true;
+  btn.textContent = '⏳ Desconectando…';
+  try {
+    await api(`/whatsapp/desconectar/${clienteAtual}`, { method: 'DELETE' });
+    toast('WhatsApp desconectado com sucesso.');
+    pararQR();
+    atualizarStatusWA();
+    carregarClientes();
+  } catch(err) {
+    toast('Erro ao desconectar: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⛔ Desconectar';
+  }
 }
 
 async function carregarGruposSalvos() {

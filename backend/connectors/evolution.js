@@ -114,4 +114,12 @@ async function enviarVideoGrupos({ instancia, clienteId, videoUrl, legenda }) {
   }
 }
 
-module.exports = { criarInstancia, obterQRCode, statusConexao, listarGrupos, enviarGrupos, enviarVideoGrupos };
+// Desconecta o WhatsApp da instância (logout) sem apagar a instância
+async function desconectarInstancia(instancia) {
+  await axios.delete(`${BASE()}/instance/logout/${instancia}`, {
+    headers: headers(),
+    timeout: 15000,
+  });
+}
+
+module.exports = { criarInstancia, obterQRCode, statusConexao, listarGrupos, enviarGrupos, enviarVideoGrupos, desconectarInstancia };
