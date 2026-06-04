@@ -90,8 +90,20 @@ function getSessaoTmp(userId) {
 function migrarSessaoTemp(userId, clienteId) {
   const tmpKey = chaveTmp(userId);
   if (!sessoes.has(tmpKey)) return;
+  const tmp     = sessoes.get(tmpKey);
   const destKey = chave(clienteId, userId);
-  if (!sessoes.has(destKey)) sessoes.set(destKey, sessoes.get(tmpKey));
+  if (!sessoes.has(destKey)) {
+    sessoes.set(destKey, tmp);
+  } else {
+    // Sessão definitiva já existe → mescla o conteúdo da temp em vez de descartá-lo,
+    // senão textos/foto/vídeo (e o pendingAction='gerar') acumulados se perdem.
+    const dest = sessoes.get(destKey);
+    if (tmp.textos.length)  dest.textos.push(...tmp.textos);
+    if (tmp.imagemUrl)      dest.imagemUrl  = tmp.imagemUrl;
+    if (tmp.videoUrl)       dest.videoUrl   = tmp.videoUrl;
+    if (tmp.videoLocal)     dest.videoLocal = tmp.videoLocal;
+    if (tmp.pendingAction)  dest.pendingAction = tmp.pendingAction;
+  }
   sessoes.delete(tmpKey);
 }
 
