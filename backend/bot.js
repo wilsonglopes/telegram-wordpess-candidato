@@ -124,7 +124,8 @@ function textoPreviewVideo(sessao) {
     `📝 <b>Legenda:</b>\n<i>${esc(legenda.slice(0, 300))}${legenda.length > 300 ? '…' : ''}</i>\n\n` +
     `<b>Publicar em:</b>\n` +
     `${sessao.canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
-    `${sessao.canais.fb ? '✅' : '⬜'} Facebook\n\n` +
+    `${sessao.canais.fb ? '✅' : '⬜'} Facebook\n` +
+    `${sessao.canais.ig ? '✅' : '⬜'} Instagram\n\n` +
     `<i>Ative ou desative os canais e clique em 🚀 Publicar</i>`
   );
 }
@@ -479,23 +480,37 @@ async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
     );
   }
 
-  sessao.stage = 'confirming';
   // Remove o reply keyboard e mostra "Gerando…" ao mesmo tempo
   const gerando = await bot.sendMessage(chatId, '⏳ Gerando matéria com IA…', {
     reply_markup: REMOVER_TECLADO,
   });
 
-  const textoCompleto = sessao.textos.join('\n\n');
-  const materia = await gerarMateria({ texto: textoCompleto, prompt: cliente.ai_prompt });
-  sessao.materia = materia;
+  try {
+    const textoCompleto = sessao.textos.join('\n\n');
+    const materia = await gerarMateria({ texto: textoCompleto, prompt: cliente.ai_prompt });
 
-  await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
+    sessao.materia = materia;
+    sessao.stage   = 'confirming';
 
-  const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
-    parse_mode:   'HTML',
-    reply_markup: teclado(sessao.canais),
-  });
-  sessao.msgId = preview.message_id;
+    await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
+
+    const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
+      parse_mode:   'HTML',
+      reply_markup: teclado(sessao.canais),
+    });
+    sessao.msgId = preview.message_id;
+  } catch (err) {
+    // Edita o "⏳ Gerando…" para mostrar o erro — nunca fica preso na tela
+    sessao.stage = 'collecting'; // volta ao estado de coleta
+    await bot.editMessageText(
+      `❌ Falha ao gerar matéria: ${esc(err.message)}\n\nO rascunho foi mantido. Tente novamente.`,
+      { chat_id: chatId, message_id: gerando.message_id }
+    ).catch(() => {});
+    // Restaura o teclado de rascunho para o assessor tentar de novo
+    bot.sendMessage(chatId, '🔄 Use o botão abaixo para tentar novamente.', {
+      reply_markup: TECLADO_RASCUNHO,
+    }).catch(() => {});
+  }
 }
 
 // ── CALLBACKS DOS BOTÕES INLINE ────────────────────────────────────────────────
