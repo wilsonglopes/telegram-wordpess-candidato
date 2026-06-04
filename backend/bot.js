@@ -68,6 +68,33 @@ function limparSessao(clienteId, userId) {
   sessoes.delete(chave(clienteId, userId));
 }
 
+// ── SESSÃO TEMPORÁRIA (antes da seleção do candidato) ──────────────────────────
+// Quando assessor tem múltiplos candidatos e ainda não escolheu um, o conteúdo
+// (texto/áudio/foto/vídeo) é acumulado aqui. Ao selecionar o candidato, o conteúdo
+// é migrado para a sessão definitiva. O candidato só é perguntado no /gerar.
+function chaveTmp(userId) { return `tmp:${userId}`; }
+
+function getSessaoTmp(userId) {
+  const k = chaveTmp(userId);
+  if (!sessoes.has(k)) {
+    sessoes.set(k, {
+      textos: [], imagemUrl: null, videoUrl: null, videoLocal: null,
+      stage: 'collecting', materia: null,
+      canais: { wa: true, fb: true, ig: true }, msgId: null,
+      pendingAction: null, // ação a executar automaticamente após seleção de candidato
+    });
+  }
+  return sessoes.get(k);
+}
+
+function migrarSessaoTemp(userId, clienteId) {
+  const tmpKey = chaveTmp(userId);
+  if (!sessoes.has(tmpKey)) return;
+  const destKey = chave(clienteId, userId);
+  if (!sessoes.has(destKey)) sessoes.set(destKey, sessoes.get(tmpKey));
+  sessoes.delete(tmpKey);
+}
+
 // ── TECLADO INLINE ─────────────────────────────────────────────────────────────
 function teclado(canais) {
   return {
@@ -261,20 +288,24 @@ async function processarMensagem(bot, msg) {
     return bot.sendMessage(chatId, '⛔ Você não está autorizado. Fale com o administrador.');
   }
 
-  // Assessor tem múltiplos candidatos e ainda não selecionou um
+  // Comandos que precisam do candidato definido para operar
+  const CMDS_CANDIDATO = new Set(['/gerar', BTN_GERAR, '/status', '/grupos', '/publicar_video']);
+
   if (resultado.selecionar) {
-    await mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
-    // Se veio mídia (áudio/foto/vídeo), ela se perde — avisar para reenviar após escolher
-    if (msg.voice || msg.audio || msg.photo || msg.video || msg.video_note) {
-      await bot.sendMessage(chatId,
-        '⚠️ Selecione o candidato acima e <b>reenvie o conteúdo</b> após a seleção.',
-        { parse_mode: 'HTML' }
-      );
+    if (CMDS_CANDIDATO.has(texto)) {
+      // Marcar ação pendente → executada automaticamente após o assessor escolher o candidato
+      if (texto === '/gerar' || texto === BTN_GERAR) {
+        getSessaoTmp(userId).pendingAction = 'gerar';
+      }
+      return mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
     }
-    return;
+    // Conteúdo (texto/áudio/foto/vídeo): acumula na sessão temporária SEM pedir candidato.
+    // O candidato só será pedido quando o assessor apertar /gerar ou ✨ Gerar matéria.
+    return acumularConteudo(bot, msg, null, getSessaoTmp(userId), userId, chatId, texto);
   }
 
   const cliente = resultado;
+  migrarSessaoTemp(userId, cliente.id); // traz conteúdo acumulado antes da seleção
   const sessao = getSessao(cliente.id, userId);
 
   // ── COMANDOS ────────────────────────────────────────────────────
@@ -340,6 +371,15 @@ async function processarMensagem(bot, msg) {
     return gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao);
   }
 
+  return acumularConteudo(bot, msg, cliente, sessao, userId, chatId, texto);
+}
+
+// ── ACÚMULO DE CONTEÚDO ────────────────────────────────────────────────────────
+// Centraliza o processamento de áudio/foto/vídeo/texto.
+// Funciona com ou sem `cliente` (null = sessão temporária, candidato ainda não escolhido).
+async function acumularConteudo(bot, msg, cliente, sessao, userId, chatId, texto) {
+  const slug = cliente?.slug || `u${userId}`;
+
   // ── ÁUDIO (Whisper) ────────────────────────────────────────────
   if (msg.voice || msg.audio) {
     if (!settings.openai_api_key) {
@@ -360,7 +400,9 @@ async function processarMensagem(bot, msg) {
         timeout: 60000,
       });
       const transcricao = whisper.data?.text;
-      if (!transcricao) return bot.editMessageText('❌ Não foi possível transcrever.', { chat_id: chatId, message_id: transcrevendo.message_id });
+      if (!transcricao) {
+        return bot.editMessageText('❌ Não foi possível transcrever.', { chat_id: chatId, message_id: transcrevendo.message_id });
+      }
       sessao.textos.push(transcricao);
       bot.deleteMessage(chatId, transcrevendo.message_id).catch(() => {});
       return bot.sendMessage(chatId,
@@ -374,27 +416,21 @@ async function processarMensagem(bot, msg) {
 
   // ── VÍDEO ───────────────────────────────────────────────────────
   if (msg.video || msg.video_note) {
-    const fileObj  = msg.video || msg.video_note;
-    const tamanho  = fileObj.file_size || 0;
+    const fileObj = msg.video || msg.video_note;
+    const tamanho = fileObj.file_size || 0;
 
     if (tamanho > 50 * 1024 * 1024) {
-      return bot.sendMessage(chatId,
-        '⚠️ Vídeo muito grande (máx 50 MB). Comprima o arquivo e tente novamente.'
-      );
+      return bot.sendMessage(chatId, '⚠️ Vídeo muito grande (máx 50 MB). Comprima o arquivo e tente novamente.');
     }
-
     if (sessao.videoUrl) {
-      return bot.sendMessage(chatId,
-        '⚠️ Já há um vídeo no rascunho. Use /publicar_video para distribuir ou /limpar para descartar.'
-      );
+      return bot.sendMessage(chatId, '⚠️ Já há um vídeo no rascunho. Use /publicar_video ou /limpar.');
     }
 
     const baixando = await bot.sendMessage(chatId, '⏳ Baixando vídeo…');
     try {
-      const fileInfo = await bot.getFile(fileObj.file_id);
+      const fileInfo  = await bot.getFile(fileObj.file_id);
       const telegramUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
-
-      const filename  = `${cliente.slug}-${Date.now()}.mp4`;
+      const filename  = `${slug}-${Date.now()}.mp4`;
       const localPath = path.join(VIDEOS_DIR, filename);
       const base      = (settings.base_url || '').replace(/\/$/, '');
       const publicUrl = `${base}/videos/${filename}`;
@@ -404,8 +440,6 @@ async function processarMensagem(bot, msg) {
 
       sessao.videoUrl   = publicUrl;
       sessao.videoLocal = localPath;
-
-      // Legenda enviada junto ao vídeo vira texto do rascunho
       const captionTelegram = msg.caption || '';
       if (captionTelegram) sessao.textos.push(captionTelegram);
 
@@ -414,20 +448,13 @@ async function processarMensagem(bot, msg) {
         `Envie uma <b>descrição/legenda</b> para gerar com IA, ou clique abaixo para publicar sem legenda.`,
         {
           chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [[
-              { text: '🚀 Publicar sem legenda', callback_data: 'video_publicar' },
-            ]],
-          },
+          reply_markup: { inline_keyboard: [[{ text: '🚀 Publicar sem legenda', callback_data: 'video_publicar' }]] },
         }
       );
     } catch (err) {
-      sessao.videoUrl   = null;
-      sessao.videoLocal = null;
-      await bot.editMessageText(
-        `❌ Erro ao baixar vídeo: ${esc(err.message)}`,
-        { chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML' }
-      );
+      sessao.videoUrl = null; sessao.videoLocal = null;
+      await bot.editMessageText(`❌ Erro ao baixar vídeo: ${esc(err.message)}`,
+        { chat_id: chatId, message_id: baixando.message_id, parse_mode: 'HTML' });
     }
     return;
   }
@@ -438,35 +465,21 @@ async function processarMensagem(bot, msg) {
     const fileInfo = await bot.getFile(fileId);
     sessao.imagemUrl = `https://api.telegram.org/file/bot${settings.telegram_bot_token}/${fileInfo.file_path}`;
     if (texto) sessao.textos.push(texto);
-    return bot.sendMessage(chatId,
-      `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.`,
-      { reply_markup: TECLADO_RASCUNHO }
-    );
+    return bot.sendMessage(chatId, `📸 Foto ${texto ? '+ texto ' : ''}adicionada ao rascunho.`, { reply_markup: TECLADO_RASCUNHO });
   }
 
   // ── TEXTO ───────────────────────────────────────────────────────
   if (texto && !texto.startsWith('/')) {
     sessao.textos.push(texto);
-
-    // Sessão de vídeo: mostra opções ao receber texto (descrição/legenda)
     if (sessao.videoUrl) {
-      return bot.sendMessage(chatId,
-        `📝 Descrição recebida. O que deseja fazer?`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              { text: '🤖 Gerar legenda com IA',      callback_data: 'video_gerar'    },
-              { text: '🚀 Publicar com esse texto',    callback_data: 'video_publicar' },
-            ]],
-          },
-        }
-      );
+      return bot.sendMessage(chatId, `📝 Descrição recebida. O que deseja fazer?`, {
+        reply_markup: { inline_keyboard: [[
+          { text: '🤖 Gerar legenda com IA',   callback_data: 'video_gerar'    },
+          { text: '🚀 Publicar com esse texto', callback_data: 'video_publicar' },
+        ]]},
+      });
     }
-
-    return bot.sendMessage(chatId,
-      `📝 Texto adicionado (${sessao.textos.length} texto(s) no rascunho).`,
-      { reply_markup: TECLADO_RASCUNHO }
-    );
+    return bot.sendMessage(chatId, `📝 Texto adicionado (${sessao.textos.length} texto(s) no rascunho).`, { reply_markup: TECLADO_RASCUNHO });
   }
 
   // Mensagem não reconhecida
@@ -541,13 +554,29 @@ async function processarCallback(bot, cbQuery) {
       return bot.answerCallbackQuery(cbQuery.id, { text: '⛔ Não autorizado.' });
     }
     const { rows: cr } = await query(
-      `SELECT nome FROM clientes WHERE id = $1 AND ativo = true`,
+      `SELECT * FROM clientes WHERE id = $1 AND ativo = true`,
       [clienteId]
     );
     if (!cr[0]) {
       return bot.answerCallbackQuery(cbQuery.id, { text: '❌ Candidato não encontrado.' });
     }
     candidatoAtivo.set(userId, clienteId);
+    migrarSessaoTemp(userId, clienteId); // migra conteúdo acumulado antes da seleção
+
+    const sessaoReal = sessoes.get(chave(clienteId, userId));
+
+    // Se havia ação pendente (ex: /gerar), executa automaticamente
+    if (sessaoReal?.pendingAction === 'gerar' && (sessaoReal.textos.length || sessaoReal.imagemUrl)) {
+      delete sessaoReal.pendingAction;
+      await bot.answerCallbackQuery(cbQuery.id, { text: `✅ ${cr[0].nome}` });
+      await bot.editMessageText(
+        `✅ Trabalhando para <b>${esc(cr[0].nome)}</b>. Gerando matéria…`,
+        { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML' }
+      );
+      return gerarMateriaDaSessao(bot, cr[0], chatId, userId, sessaoReal);
+    }
+    if (sessaoReal?.pendingAction) delete sessaoReal.pendingAction;
+
     await bot.answerCallbackQuery(cbQuery.id, { text: `✅ ${cr[0].nome}` });
     await bot.editMessageText(
       `✅ Trabalhando para <b>${esc(cr[0].nome)}</b>.\n\nAgora envie textos, fotos ou áudios normalmente.\nUse /trocar para mudar de candidato.`,
