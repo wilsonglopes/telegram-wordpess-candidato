@@ -35,7 +35,7 @@ async function gerarMateria({ texto, prompt }) {
   };
 }
 
-// Parser tolerante — lida com blocos markdown e aspas não-escapadas
+// Parser tolerante — múltiplas estratégias para lidar com JSON malformado da IA
 function parseJsonIA(raw) {
   const limpo = raw
     .trim()
@@ -52,18 +52,40 @@ function parseJsonIA(raw) {
     try { return JSON.parse(match[0]); } catch {}
   }
 
-  // Tentativa 3: corrige quebras de linha dentro de strings JSON
-  // (causa mais comum do "Expected ',' or '}'" em textos HTML)
+  // Tentativa 3: substitui quebras de linha dentro de strings por \n escapado
+  // Método simples — percorre char a char para ser preciso
   try {
-    const corrigido = limpo.replace(
-      /"(corpo|body|content)":\s*"([\s\S]*?)(?<!\\)"/g,
-      (_, k, v) => `"${k}": "${v.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/(?<!\\)"/g, '\\"')}"`
-    );
-    const m2 = corrigido.match(/\{[\s\S]*\}/);
+    let dentro = false;
+    let escape = false;
+    let saida  = '';
+    for (const ch of limpo) {
+      if (escape) { saida += ch; escape = false; continue; }
+      if (ch === '\\') { saida += ch; escape = true; continue; }
+      if (ch === '"') { dentro = !dentro; saida += ch; continue; }
+      if (dentro && (ch === '\n' || ch === '\r')) { saida += ch === '\n' ? '\\n' : '\\r'; continue; }
+      saida += ch;
+    }
+    try { return JSON.parse(saida); } catch {}
+    const m2 = saida.match(/\{[\s\S]*\}/);
     if (m2) return JSON.parse(m2[0]);
   } catch {}
 
-  throw new Error('A IA retornou JSON inválido. Tente novamente em alguns segundos.');
+  // Tentativa 4: extrai campos individualmente com regex
+  try {
+    const get = (campo) => {
+      const r = new RegExp(`"${campo}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`);
+      return (limpo.match(r) || [])[1] || '';
+    };
+    const chapeu = get('chapeu');
+    const titulo = get('titulo');
+    const resumo = get('resumo');
+    // Para "corpo", pega tudo entre a primeira e última aspa do campo
+    const corpoMatch = limpo.match(/"corpo"\s*:\s*"([\s\S]*)"[^}]*\}?\s*$/);
+    const corpo = corpoMatch ? corpoMatch[1].replace(/\\n/g, '\n') : '';
+    if (titulo) return { chapeu, titulo, resumo, corpo };
+  } catch {}
+
+  throw new Error('A IA retornou formato inválido. Tente novamente em alguns segundos.');
 }
 
 async function gerarDeepSeek(texto, systemPrompt) {

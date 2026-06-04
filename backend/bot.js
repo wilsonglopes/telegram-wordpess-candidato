@@ -263,7 +263,15 @@ async function processarMensagem(bot, msg) {
 
   // Assessor tem múltiplos candidatos e ainda não selecionou um
   if (resultado.selecionar) {
-    return mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
+    await mostrarSelecaoCandidato(bot, chatId, resultado.candidatos);
+    // Se veio mídia (áudio/foto/vídeo), ela se perde — avisar para reenviar após escolher
+    if (msg.voice || msg.audio || msg.photo || msg.video || msg.video_note) {
+      await bot.sendMessage(chatId,
+        '⚠️ Selecione o candidato acima e <b>reenvie o conteúdo</b> após a seleção.',
+        { parse_mode: 'HTML' }
+      );
+    }
+    return;
   }
 
   const cliente = resultado;
