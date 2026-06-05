@@ -152,6 +152,42 @@ function corpoParaTexto(html) {
     .trim();
 }
 
+// Divide o corpo (HTML) em blocos <p> — cada bloco é um parágrafo (preservado como está)
+function corpoBlocos(html) {
+  const s = String(html || '').trim();
+  const blocos = s.match(/<p[^>]*>[\s\S]*?<\/p>/gi);
+  if (blocos && blocos.length) return blocos;
+  // fallback: corpo sem <p> → cria um bloco por linha em branco
+  return s.split(/\n\s*\n|\n/).map(t => t.trim()).filter(Boolean).map(t => `<p>${esc(t)}</p>`);
+}
+
+// Texto puro de um bloco <p> (para exibir ao assessor)
+function blocoTexto(bloco) {
+  return String(bloco || '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .trim();
+}
+
+// Monta a lista numerada dos parágrafos do corpo + teclado de seleção
+function montarListaParagrafos(corpo) {
+  const blocos = corpoBlocos(corpo);
+  if (!blocos.length) {
+    return { texto: '📄 O corpo está vazio.', teclado: { inline_keyboard: [[{ text: '⬅️ Voltar', callback_data: 'corrigir_voltar' }]] } };
+  }
+  let texto = '✏️ <b>Corpo — toque no número do parágrafo para editar ou apagar:</b>\n\n';
+  blocos.forEach((b, i) => {
+    const t = blocoTexto(b);
+    texto += `<b>[${i + 1}]</b> ${esc(t.slice(0, 140))}${t.length > 140 ? '…' : ''}\n\n`;
+  });
+  const btns = blocos.map((_, i) => ({ text: `${i + 1}`, callback_data: `par_${i}` }));
+  const linhas = [];
+  for (let i = 0; i < btns.length; i += 4) linhas.push(btns.slice(i, i + 4));
+  linhas.push([{ text: '⬅️ Voltar', callback_data: 'corrigir_voltar' }]);
+  return { texto, teclado: { inline_keyboard: linhas } };
+}
+
 // (Re)cria a prévia web efêmera para a matéria atual da sessão e atualiza sessao.previewUrl
 function criarPreviewWeb(cliente, sessao) {
   sessao.previewUrl = null;
@@ -181,6 +217,24 @@ async function aplicarEdicaoCampo(bot, cliente, chatId, userId, sessao, texto) {
   if (!texto || !texto.trim()) {
     return bot.sendMessage(chatId, '✏️ Envie o novo texto do campo (apenas texto).');
   }
+
+  // Reescrever um parágrafo específico do corpo → volta para a lista de parágrafos
+  if (campo && campo.startsWith('corpo_par_')) {
+    const n = parseInt(campo.replace('corpo_par_', ''), 10);
+    const blocos = corpoBlocos(sessao.materia.corpo);
+    if (n >= 0 && n < blocos.length) {
+      blocos[n] = `<p>${esc(texto.trim())}</p>`;
+      sessao.materia.corpo = blocos.join('');
+    }
+    sessao.editando = null;
+    criarPreviewWeb(cliente, sessao);
+    await bot.sendMessage(chatId, `✅ Parágrafo ${n + 1} atualizado.`);
+    const lista = montarListaParagrafos(sessao.materia.corpo);
+    const m = await bot.sendMessage(chatId, lista.texto, { parse_mode: 'HTML', reply_markup: lista.teclado });
+    sessao.msgId = m.message_id;
+    return;
+  }
+
   if (campo === 'corpo') {
     const paras = texto.split(/\n\s*\n|\n/).map(p => p.trim()).filter(Boolean);
     sessao.materia.corpo = paras.map(p => `<p>${esc(p)}</p>`).join('');
@@ -795,14 +849,73 @@ async function processarCallback(bot, cbQuery) {
   if (data.startsWith('edit_')) {
     const campo = data.replace('edit_', '');
     if (!['titulo', 'chapeu', 'resumo', 'corpo'].includes(campo) || !sessao.materia) return;
+    sessao.editando = null;
+    if (campo === 'corpo') {
+      // Corpo é editado POR PARÁGRAFO — mostra a lista numerada
+      const lista = montarListaParagrafos(sessao.materia.corpo);
+      await bot.editMessageText(lista.texto, {
+        chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML', reply_markup: lista.teclado,
+      });
+      return;
+    }
     sessao.editando = campo;
-    const atual = campo === 'corpo' ? corpoParaTexto(sessao.materia.corpo) : (sessao.materia[campo] || '(vazio)');
+    const atual = sessao.materia[campo] || '(vazio)';
     await bot.editMessageText(
-      `✏️ <b>${nomeCampo(campo)} atual:</b>\n<i>${esc(atual).slice(0, 600)}</i>\n\n` +
-      `Envie agora o novo texto para substituir${campo === 'corpo' ? ' (separe os parágrafos com uma linha em branco)' : ''}:`,
+      `✏️ <b>${nomeCampo(campo)} atual:</b>\n<i>${esc(atual).slice(0, 600)}</i>\n\nEnvie agora o novo texto para substituir:`,
       { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [[{ text: '⬅️ Cancelar', callback_data: 'corrigir_voltar' }]] } }
     );
+    return;
+  }
+
+  // Parágrafo do corpo selecionado → opções (reescrever / apagar)
+  if (/^par_\d+$/.test(data)) {
+    if (!sessao.materia) return;
+    sessao.editando = null;
+    const n = parseInt(data.replace('par_', ''), 10);
+    const blocos = corpoBlocos(sessao.materia.corpo);
+    if (n < 0 || n >= blocos.length) return;
+    await bot.editMessageText(
+      `📄 <b>Parágrafo ${n + 1}:</b>\n<i>${esc(blocoTexto(blocos[n]))}</i>\n\nO que deseja fazer?`,
+      { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [
+          [{ text: '✏️ Reescrever', callback_data: `paredit_${n}` }, { text: '🗑️ Apagar', callback_data: `pardel_${n}` }],
+          [{ text: '⬅️ Voltar', callback_data: 'edit_corpo' }],
+        ] } }
+    );
+    return;
+  }
+
+  // Reescrever parágrafo → pede o novo texto
+  if (/^paredit_\d+$/.test(data)) {
+    if (!sessao.materia) return;
+    const n = parseInt(data.replace('paredit_', ''), 10);
+    const blocos = corpoBlocos(sessao.materia.corpo);
+    if (n < 0 || n >= blocos.length) return;
+    sessao.editando = `corpo_par_${n}`;
+    await bot.editMessageText(
+      `✏️ <b>Parágrafo ${n + 1} atual:</b>\n<i>${esc(blocoTexto(blocos[n]))}</i>\n\nEnvie o novo texto deste parágrafo:`,
+      { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '⬅️ Cancelar', callback_data: 'edit_corpo' }]] } }
+    );
+    return;
+  }
+
+  // Apagar parágrafo → remove e volta para a lista atualizada
+  if (/^pardel_\d+$/.test(data)) {
+    if (!sessao.materia) return;
+    sessao.editando = null;
+    const n = parseInt(data.replace('pardel_', ''), 10);
+    const blocos = corpoBlocos(sessao.materia.corpo);
+    if (n >= 0 && n < blocos.length) {
+      blocos.splice(n, 1);
+      sessao.materia.corpo = blocos.join('');
+      criarPreviewWeb(cliente, sessao);
+    }
+    const lista = montarListaParagrafos(sessao.materia.corpo);
+    await bot.editMessageText(lista.texto, {
+      chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML', reply_markup: lista.teclado,
+    });
     return;
   }
 
