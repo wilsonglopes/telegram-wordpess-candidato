@@ -118,15 +118,84 @@ function teclado(canais, previewUrl) {
       { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
     ],
   ];
-  // Botão de prévia web (link) — só aparece se houver URL gerada
-  if (previewUrl) {
-    linhas.push([{ text: '👁️ Ver prévia completa', url: previewUrl }]);
-  }
+  // Linha de ações: prévia web (link) + corrigir matéria
+  const acoes = [];
+  if (previewUrl) acoes.push({ text: '👁️ Ver prévia', url: previewUrl });
+  acoes.push({ text: '✏️ Corrigir', callback_data: 'corrigir' });
+  linhas.push(acoes);
   linhas.push([
     { text: '🚀 Publicar agora', callback_data: 'publicar' },
     { text: '🗑️ Cancelar',       callback_data: 'cancelar' },
   ]);
   return { inline_keyboard: linhas };
+}
+
+// Teclado do menu "Corrigir" — escolha do campo a editar manualmente
+function tecladoCorrigir() {
+  return { inline_keyboard: [
+    [{ text: '📰 Título', callback_data: 'edit_titulo' }, { text: '🏷️ Chápeu', callback_data: 'edit_chapeu' }],
+    [{ text: '📝 Resumo', callback_data: 'edit_resumo' }, { text: '📄 Corpo',  callback_data: 'edit_corpo'  }],
+    [{ text: '⬅️ Voltar', callback_data: 'corrigir_voltar' }],
+  ]};
+}
+
+function nomeCampo(c) {
+  return { titulo: 'Título', chapeu: 'Chápeu', resumo: 'Resumo', corpo: 'Corpo' }[c] || c;
+}
+
+// Converte o corpo (HTML com <p>) em texto puro, para exibir ao editar
+function corpoParaTexto(html) {
+  return String(html || '')
+    .replace(/<\/p>\s*<p>/gi, '\n\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?p>/gi, '')
+    .trim();
+}
+
+// (Re)cria a prévia web efêmera para a matéria atual da sessão e atualiza sessao.previewUrl
+function criarPreviewWeb(cliente, sessao) {
+  sessao.previewUrl = null;
+  try {
+    const base = (settings.base_url || '').replace(/\/$/, '');
+    if (base && sessao.materia) {
+      const token = previewStore.criar({
+        chapeu:    sessao.materia.chapeu,
+        titulo:    sessao.materia.titulo,
+        resumo:    sessao.materia.resumo,
+        corpo:     sessao.materia.corpo,
+        imagemUrl: sessao.imagemUrl,
+        candidato: cliente.nome,
+      });
+      sessao.previewUrl = `${base}/preview/${token}`;
+    }
+  } catch {}
+}
+
+// Aplica a edição manual de um campo e volta para a prévia atualizada
+async function aplicarEdicaoCampo(bot, cliente, chatId, userId, sessao, texto) {
+  const campo = sessao.editando;
+  if (!sessao.materia) {
+    sessao.editando = null;
+    return bot.sendMessage(chatId, '⚠️ Nada para corrigir. Gere a matéria primeiro.');
+  }
+  if (!texto || !texto.trim()) {
+    return bot.sendMessage(chatId, '✏️ Envie o novo texto do campo (apenas texto).');
+  }
+  if (campo === 'corpo') {
+    const paras = texto.split(/\n\s*\n|\n/).map(p => p.trim()).filter(Boolean);
+    sessao.materia.corpo = paras.map(p => `<p>${esc(p)}</p>`).join('');
+  } else if (['titulo', 'chapeu', 'resumo'].includes(campo)) {
+    sessao.materia[campo] = texto.trim();
+  }
+  sessao.editando = null;
+  criarPreviewWeb(cliente, sessao); // regenera a prévia web com o novo conteúdo
+
+  await bot.sendMessage(chatId, `✅ ${nomeCampo(campo)} atualizado.`);
+  const preview = await bot.sendMessage(chatId, textoPrevia(sessao.materia, sessao.canais), {
+    parse_mode:   'HTML',
+    reply_markup: teclado(sessao.canais, sessao.previewUrl),
+  });
+  sessao.msgId = preview.message_id;
 }
 
 function textoPrevia(materia, canais) {
@@ -324,6 +393,16 @@ async function processarMensagem(bot, msg) {
   const cliente = resultado;
   migrarSessaoTemp(userId, cliente.id); // traz conteúdo acumulado antes da seleção
   const sessao = getSessao(cliente.id, userId);
+
+  // Edição de campo da prévia em andamento → o texto digitado vira o novo valor.
+  // Um comando (/...) cancela a edição e segue o fluxo normal.
+  if (sessao.editando) {
+    if (texto && texto.startsWith('/')) {
+      sessao.editando = null;
+    } else {
+      return aplicarEdicaoCampo(bot, cliente, chatId, userId, sessao, texto);
+    }
+  }
 
   // ── COMANDOS ────────────────────────────────────────────────────
   if (texto === '/start' || texto === '/ajuda') {
@@ -691,6 +770,39 @@ async function processarCallback(bot, cbQuery) {
     await bot.editMessageText('🗑️ Publicação cancelada. Rascunho descartado.', {
       chat_id: chatId, message_id: cbQuery.message.message_id,
     });
+    return;
+  }
+
+  // ── CORREÇÃO POR CAMPO (antes de publicar) ──
+  if (data === 'corrigir') {
+    if (!sessao.materia) return;
+    await bot.editMessageText('✏️ <b>O que deseja corrigir?</b>\n\nEscolha o campo:', {
+      chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
+      reply_markup: tecladoCorrigir(),
+    });
+    return;
+  }
+
+  if (data === 'corrigir_voltar') {
+    sessao.editando = null;
+    await bot.editMessageText(textoPrevia(sessao.materia, sessao.canais), {
+      chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
+      reply_markup: teclado(sessao.canais, sessao.previewUrl),
+    });
+    return;
+  }
+
+  if (data.startsWith('edit_')) {
+    const campo = data.replace('edit_', '');
+    if (!['titulo', 'chapeu', 'resumo', 'corpo'].includes(campo) || !sessao.materia) return;
+    sessao.editando = campo;
+    const atual = campo === 'corpo' ? corpoParaTexto(sessao.materia.corpo) : (sessao.materia[campo] || '(vazio)');
+    await bot.editMessageText(
+      `✏️ <b>${nomeCampo(campo)} atual:</b>\n<i>${esc(atual).slice(0, 600)}</i>\n\n` +
+      `Envie agora o novo texto para substituir${campo === 'corpo' ? ' (separe os parágrafos com uma linha em branco)' : ''}:`,
+      { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: '⬅️ Cancelar', callback_data: 'corrigir_voltar' }]] } }
+    );
     return;
   }
 
