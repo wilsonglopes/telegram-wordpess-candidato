@@ -3,21 +3,31 @@
 const axios    = require('axios');
 const settings = require('../settings.json');
 
-const PROMPT_PADRAO = `Você é um redator de assessoria de imprensa política.
-Recebe um briefing e escreve uma matéria jornalística completa.
-Responda APENAS com JSON válido no formato:
+// Instrução de FORMATO de saída — sempre anexada ao prompt, mesmo quando o cliente
+// define um ai_prompt customizado. Dois motivos:
+//  1. DeepSeek/OpenAI EXIGEM a palavra "json" no prompt ao usar response_format json_object
+//     (senão retornam HTTP 400). Prompt customizado sem "json" quebrava a geração.
+//  2. O parser espera os campos chapeu/titulo/resumo/corpo — o cliente define só o tom/estilo.
+const FORMATO_JSON = `Responda APENAS com JSON válido no formato:
 {"chapeu": "...", "titulo": "...", "resumo": "...", "corpo": "..."}
 
 Campos:
 - chapeu: etiqueta editorial curta em MAIÚSCULAS (2 a 4 palavras). Ex: "POLÍTICA", "CAMPANHA 2026", "SAÚDE PÚBLICA"
 - titulo: manchete completa e objetiva
 - resumo: 1 a 2 frases resumindo a notícia (usado como subtítulo/lide)
-- corpo: HTML com parágrafos <p>. Sem markdown. Mínimo 3, máximo 5 parágrafos.
+- corpo: HTML com parágrafos <p>. Sem markdown. Mínimo 3, máximo 5 parágrafos.`;
+
+const PROMPT_PADRAO = `Você é um redator de assessoria de imprensa política.
+Recebe um briefing e escreve uma matéria jornalística completa.
+${FORMATO_JSON}
 
 Tom: formal, objetivo, jornalístico.`;
 
 async function gerarMateria({ texto, prompt }) {
-  const systemPrompt = prompt || PROMPT_PADRAO;
+  // O ai_prompt do cliente define tom/estilo; o formato JSON é SEMPRE imposto pelo sistema.
+  const systemPrompt = prompt
+    ? `${prompt}\n\n${FORMATO_JSON}`
+    : PROMPT_PADRAO;
 
   let resultado;
   if (settings.ai_provider === 'deepseek') {
