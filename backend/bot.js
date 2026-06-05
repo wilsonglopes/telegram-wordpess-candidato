@@ -868,35 +868,21 @@ async function processarCallback(bot, cbQuery) {
     return;
   }
 
-  // Parágrafo do corpo selecionado → opções (reescrever / apagar)
+  // Parágrafo do corpo selecionado → JÁ espera o novo texto (digite direto) ou apagar/voltar
   if (/^par_\d+$/.test(data)) {
     if (!sessao.materia) return;
-    sessao.editando = null;
     const n = parseInt(data.replace('par_', ''), 10);
     const blocos = corpoBlocos(sessao.materia.corpo);
     if (n < 0 || n >= blocos.length) return;
+    sessao.editando = `corpo_par_${n}`; // qualquer texto digitado agora substitui este parágrafo
     await bot.editMessageText(
-      `📄 <b>Parágrafo ${n + 1}:</b>\n<i>${esc(blocoTexto(blocos[n]))}</i>\n\nO que deseja fazer?`,
+      `📄 <b>Parágrafo ${n + 1}:</b>\n<i>${esc(blocoTexto(blocos[n]))}</i>\n\n` +
+      `✏️ <b>Envie agora o novo texto</b> para substituir este parágrafo, ou use os botões abaixo:`,
       { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [
-          [{ text: '✏️ Reescrever', callback_data: `paredit_${n}` }, { text: '🗑️ Apagar', callback_data: `pardel_${n}` }],
+          [{ text: '🗑️ Apagar parágrafo', callback_data: `pardel_${n}` }],
           [{ text: '⬅️ Voltar', callback_data: 'edit_corpo' }],
         ] } }
-    );
-    return;
-  }
-
-  // Reescrever parágrafo → pede o novo texto
-  if (/^paredit_\d+$/.test(data)) {
-    if (!sessao.materia) return;
-    const n = parseInt(data.replace('paredit_', ''), 10);
-    const blocos = corpoBlocos(sessao.materia.corpo);
-    if (n < 0 || n >= blocos.length) return;
-    sessao.editando = `corpo_par_${n}`;
-    await bot.editMessageText(
-      `✏️ <b>Parágrafo ${n + 1} atual:</b>\n<i>${esc(blocoTexto(blocos[n]))}</i>\n\nEnvie o novo texto deste parágrafo:`,
-      { chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: [[{ text: '⬅️ Cancelar', callback_data: 'edit_corpo' }]] } }
     );
     return;
   }
