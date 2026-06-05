@@ -13,9 +13,12 @@ const FORMATO_JSON = `Responda APENAS com JSON válido no formato:
 
 Campos:
 - chapeu: etiqueta editorial curta em MAIÚSCULAS (2 a 4 palavras). Ex: "POLÍTICA", "CAMPANHA 2026", "SAÚDE PÚBLICA"
-- titulo: manchete completa e objetiva
+- titulo: manchete CURTA e objetiva, no máximo 12 palavras (cerca de 80 caracteres), para caber em até 3 linhas. NUNCA use uma citação ou frase entre aspas como título — a citação vai no corpo, nunca no título.
 - resumo: 1 a 2 frases resumindo a notícia (usado como subtítulo/lide)
-- corpo: HTML com parágrafos <p>. Sem markdown. Mínimo 3, máximo 5 parágrafos.`;
+- corpo: HTML com parágrafos <p>. Sem markdown. Mínimo 3, máximo 5 parágrafos.
+
+Regras obrigatórias:
+- Preserve EXATAMENTE a grafia dos nomes próprios (pessoas, lugares, cargos, programas, partidos) como aparecem no material enviado. NUNCA corrija nem altere a ortografia de um nome próprio. Ex: se o material diz "Waldez Góes", escreva "Waldez Góes" — jamais "Waldes".`;
 
 const PROMPT_PADRAO = `Você é um redator de assessoria de imprensa política.
 Recebe um briefing e escreve uma matéria jornalística completa.
