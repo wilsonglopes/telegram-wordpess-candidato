@@ -227,6 +227,7 @@
       <button class="tab-btn"        onclick="aba('social',      this)">Facebook & Instagram</button>
       <button class="tab-btn"        onclick="aba('whatsapp',    this)">WhatsApp</button>
       <button class="tab-btn"        onclick="aba('aparencia',   this)">Aparência</button>
+      <button class="tab-btn"        onclick="aba('conta',       this)">Conta</button>
     </div>
 
     <!-- ══════ VISÃO GERAL ══════ -->
@@ -490,6 +491,37 @@
       <div class="save-row">
         <span class="save-feedback" id="aparenciaFeedback">✅ Salvo!</span>
         <button class="btn btn-primary" onclick="salvarAparencia()">Salvar Aparência</button>
+      </div>
+    </div>
+
+    <!-- ABA: CONTA (trocar senha) -->
+    <div class="tab-pane" id="pane-conta">
+      <div class="section">
+        <div class="section-title">Trocar senha</div>
+        <p style="font-size:var(--text-sm);color:var(--c-text-muted);margin-bottom:var(--sp-5)">
+          Altere a senha de acesso ao seu painel. Você precisa informar a senha atual.
+        </p>
+        <div class="form-group">
+          <label>Senha atual</label>
+          <input id="senhaAtual" class="input" type="password" autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nova senha</label>
+            <input id="senhaNova" class="input" type="password" autocomplete="new-password" placeholder="••••••••">
+            <span class="hint">Mínimo de 6 caracteres.</span>
+          </div>
+          <div class="form-group">
+            <label>Confirmar nova senha</label>
+            <input id="senhaNova2" class="input" type="password" autocomplete="new-password" placeholder="••••••••">
+          </div>
+        </div>
+        <div id="senhaErro" style="display:none;color:#f87171;font-size:var(--text-sm);margin-bottom:var(--sp-3)"></div>
+      </div>
+
+      <div class="save-row">
+        <span class="save-feedback" id="senhaFeedback">✅ Senha alterada!</span>
+        <button class="btn btn-primary" onclick="trocarSenha()">Salvar nova senha</button>
       </div>
     </div>
   </main>
@@ -836,6 +868,37 @@ async function salvarAparencia() {
   };
   const ok = await api('PATCH', '/api/me', body);
   if (ok) feedback('aparenciaFeedback');
+}
+
+// ── CONTA (trocar senha) ────────────────────────────────
+
+async function trocarSenha() {
+  const atual = document.getElementById('senhaAtual').value;
+  const nova  = document.getElementById('senhaNova').value;
+  const nova2 = document.getElementById('senhaNova2').value;
+  const erro  = document.getElementById('senhaErro');
+  erro.style.display = 'none';
+
+  if (!atual || !nova) {
+    erro.textContent = 'Preencha a senha atual e a nova senha.'; erro.style.display = 'block'; return;
+  }
+  if (nova.length < 6) {
+    erro.textContent = 'A nova senha deve ter ao menos 6 caracteres.'; erro.style.display = 'block'; return;
+  }
+  if (nova !== nova2) {
+    erro.textContent = 'A confirmação não confere com a nova senha.'; erro.style.display = 'block'; return;
+  }
+
+  const r = await api('POST', '/api/me/senha', { senha_atual: atual, senha_nova: nova });
+  if (r && r.ok) {
+    document.getElementById('senhaAtual').value = '';
+    document.getElementById('senhaNova').value  = '';
+    document.getElementById('senhaNova2').value = '';
+    feedback('senhaFeedback');
+  } else {
+    erro.textContent = (r && r.erro) || 'Não foi possível alterar a senha.';
+    erro.style.display = 'block';
+  }
 }
 
 // ── UTILITÁRIOS ─────────────────────────────────────────

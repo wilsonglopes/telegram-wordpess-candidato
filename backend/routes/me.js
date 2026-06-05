@@ -2,6 +2,7 @@
 
 const express = require('express');
 const axios   = require('axios');
+const bcrypt  = require('bcryptjs');
 const { query }              = require('../db');
 const { authUserMiddleware } = require('./auth');
 const { obterQRCode, statusConexao, listarGrupos } = require('../connectors/evolution');
@@ -49,6 +50,32 @@ router.patch('/', async (req, res) => {
     if (updates.length === 0) return res.status(400).json({ erro: 'Nada para atualizar' });
     values.push(req.clienteId);
     await query(`UPDATE clientes SET ${updates.join(', ')} WHERE id = $${i}`, values);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ── TROCAR A PRÓPRIA SENHA ─────────────────────────────────────────────────────
+
+router.post('/senha', async (req, res) => {
+  try {
+    const { senha_atual, senha_nova } = req.body;
+    if (!senha_atual || !senha_nova) {
+      return res.status(400).json({ erro: 'Informe a senha atual e a nova senha.' });
+    }
+    if (String(senha_nova).length < 6) {
+      return res.status(400).json({ erro: 'A nova senha deve ter ao menos 6 caracteres.' });
+    }
+    const { rows } = await query(`SELECT user_password_hash FROM clientes WHERE id = $1`, [req.clienteId]);
+    if (!rows[0] || !rows[0].user_password_hash) {
+      return res.status(400).json({ erro: 'Sua conta ainda não tem senha definida. Fale com o administrador.' });
+    }
+    if (!bcrypt.compareSync(senha_atual, rows[0].user_password_hash)) {
+      return res.status(400).json({ erro: 'Senha atual incorreta.' });
+    }
+    const hash = bcrypt.hashSync(String(senha_nova), 10);
+    await query(`UPDATE clientes SET user_password_hash = $1 WHERE id = $2`, [hash, req.clienteId]);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: err.message });
