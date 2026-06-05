@@ -7,7 +7,13 @@ PM2_NAME="plataforma-candidatos"
 echo "=== Deploy Plataforma Candidatos ==="
 
 cd $APP_DIR
-git pull origin master
+# Blindagem: força o código EXATO do master, descartando qualquer alteração local
+# no servidor (ex: package-lock.json mexido pelo npm install). Evita o `git pull`
+# abortar por sujeira e deixar o servidor rodando versão antiga.
+# Seguro: o servidor só consome o repo; settings.json/cards/videos sao gitignored
+# e nao sao tocados por reset --hard.
+git fetch origin master
+git reset --hard origin/master
 
 cd backend
 npm install --omit=dev
