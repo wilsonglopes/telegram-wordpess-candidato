@@ -66,16 +66,22 @@ async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, ima
     `SELECT group_jid, nome FROM grupos_whatsapp WHERE cliente_id = $1 AND ativo = true`,
     [clienteId]
   );
-  if (grupos.length === 0) return;
+  if (grupos.length === 0) {
+    console.log(`[evolution] ${instancia}: nenhum grupo ativo (cliente ${clienteId}) — nada a enviar.`);
+    return;
+  }
+  console.log(`[evolution] ${instancia}: enviando para ${grupos.length} grupo(s) — tipo ${imagemUrl ? 'imagem' : 'texto'}.`);
 
   const legenda = renderTemplate('whatsapp', template || 'padrao', {
     CHAPEU: chapeu, TITULO: titulo, RESUMO: resumo, LINK: postUrl, SLUG_CANDIDATO: slug,
   });
 
+  let ok = 0, falhas = 0;
   for (const grupo of grupos) {
     try {
+      let r;
       if (imagemUrl) {
-        await axios.post(`${BASE()}/message/sendMedia/${instancia}`, {
+        r = await axios.post(`${BASE()}/message/sendMedia/${instancia}`, {
           number:    grupo.group_jid,
           mediatype: 'image',
           mimetype:  'image/jpeg',
@@ -83,15 +89,24 @@ async function enviarGrupos({ instancia, clienteId, titulo, resumo, postUrl, ima
           media:     imagemUrl,
         }, { headers: headers(), timeout: 30000 });
       } else {
-        await axios.post(`${BASE()}/message/sendText/${instancia}`, {
+        r = await axios.post(`${BASE()}/message/sendText/${instancia}`, {
           number: grupo.group_jid,
           text:   legenda,
         }, { headers: headers(), timeout: 15000 });
       }
+      ok++;
+      const msgId = r.data?.key?.id || r.data?.id || 's/id';
+      // "aceito" = a Evolution recebeu (id retornado). Não garante entrega se o grupo
+      // for restrito a admins e o bot não for admin (ver lição: grupo "announce").
+      console.log(`[evolution] ✓ aceito no grupo "${grupo.nome}" (${grupo.group_jid}) id=${msgId}`);
     } catch (err) {
-      console.warn(`[evolution] Falha no grupo ${grupo.nome}:`, err.message);
+      falhas++;
+      const status  = err.response?.status || '-';
+      const detalhe = err.response?.data ? JSON.stringify(err.response.data).slice(0, 200) : err.message;
+      console.warn(`[evolution] ✗ FALHA no grupo "${grupo.nome}" (${grupo.group_jid}) status=${status}: ${detalhe}`);
     }
   }
+  console.log(`[evolution] ${instancia}: resultado — ${ok} aceito(s), ${falhas} falha(s) de ${grupos.length} grupo(s).`);
 }
 
 // Envia vídeo para todos os grupos ativos do cliente
