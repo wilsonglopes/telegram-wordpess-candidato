@@ -831,7 +831,7 @@ async function login() {
     mostrarApp();
   } catch { document.getElementById('loginErro').textContent = 'E-mail ou senha inválidos'; }
 }
-function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.reload(); }
+function logout() { localStorage.removeItem('admin_token'); TOKEN = ''; location.href = '/'; }
 let globalBotToken = '';
 
 async function carregarBotToken() {

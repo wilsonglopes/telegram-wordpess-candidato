@@ -535,7 +535,7 @@ async function fazerLogin() {
 
 function sair() {
   localStorage.removeItem('user_token');
-  location.reload();
+  location.href = '/';
 }
 
 document.getElementById('loginSenha').addEventListener('keydown', e => {
