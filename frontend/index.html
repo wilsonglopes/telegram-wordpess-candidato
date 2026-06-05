@@ -112,6 +112,62 @@
       font-weight: 900;
     }
 
+    .nav-actions { display: inline-flex; align-items: center; gap: 12px; }
+
+    .login-menu { position: relative; }
+
+    .nav-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 42px;
+      padding: 0 16px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--white);
+      border: 1.5px solid var(--line-dark);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+
+    .nav-login:hover { border-color: rgba(251, 253, 255, 0.42); background: rgba(251, 253, 255, 0.06); }
+    .nav-login svg { transition: transform .2s; }
+    .nav-login[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+    .login-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 244px;
+      background: var(--ink-2);
+      border: 1px solid var(--line-dark);
+      border-radius: 16px;
+      box-shadow: 0 24px 60px rgba(7, 17, 31, 0.55);
+      padding: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .login-dropdown.open { display: flex; }
+
+    .login-dropdown a {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 11px 14px;
+      border-radius: 11px;
+      text-decoration: none;
+      color: var(--white);
+    }
+
+    .login-dropdown a:hover { background: rgba(251, 253, 255, 0.08); }
+    .login-dropdown a strong { font-size: 14px; font-weight: 800; }
+    .login-dropdown a span { font-size: 12px; color: rgba(251, 253, 255, 0.6); font-weight: 600; }
+
     .hero {
       min-height: 100svh;
       position: relative;
@@ -648,7 +704,25 @@
         <a href="#fluxo">Como funciona</a>
         <a href="#contato">Contato</a>
       </div>
-      <a class="nav-cta" href="https://wa.me/5548991443001?text=Oi%2C%20quero%20conhecer%20o%20Scatto%20Feed" target="_blank" rel="noopener">Falar no WhatsApp</a>
+      <div class="nav-actions">
+        <div class="login-menu">
+          <button type="button" class="nav-login" id="loginToggle" aria-haspopup="true" aria-expanded="false">
+            Entrar
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="login-dropdown" id="loginDropdown" role="menu" aria-label="Opções de acesso">
+            <a href="/painel" role="menuitem">
+              <strong>Painel do candidato</strong>
+              <span>Acesso da assessoria</span>
+            </a>
+            <a href="/admin" role="menuitem">
+              <strong>Administrador</strong>
+              <span>Gestão da plataforma</span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-cta" href="https://wa.me/5548991443001?text=Oi%2C%20quero%20conhecer%20o%20Scatto%20Feed" target="_blank" rel="noopener">Falar no WhatsApp</a>
+      </div>
     </div>
   </nav>
 
@@ -847,6 +921,29 @@
     } else {
       reveals.forEach((el) => el.classList.add("visible"));
     }
+
+    // Menu de login (Entrar) — abre/fecha o dropdown
+    (function () {
+      var toggle = document.getElementById("loginToggle");
+      var menu   = document.getElementById("loginDropdown");
+      if (!toggle || !menu) return;
+      toggle.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var aberto = menu.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", aberto ? "true" : "false");
+      });
+      menu.addEventListener("click", function (e) { e.stopPropagation(); });
+      document.addEventListener("click", function () {
+        menu.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          menu.classList.remove("open");
+          toggle.setAttribute("aria-expanded", "false");
+        }
+      });
+    })();
   </script>
 </body>
 </html>
