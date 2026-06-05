@@ -11,6 +11,7 @@ const { publicarWP }    = require('./connectors/wordpress');
 const { enviarGrupos, enviarVideoGrupos } = require('./connectors/evolution');
 const { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram } = require('./connectors/social');
 const { gerarImagemTemplate } = require('./utils/imageTemplate');
+const previewStore = require('./utils/previewStore');
 const settings = require('./settings.json');
 
 const CARDS_DIR  = path.join(__dirname, 'cards');
@@ -108,20 +109,23 @@ function migrarSessaoTemp(userId, clienteId) {
 }
 
 // ── TECLADO INLINE ─────────────────────────────────────────────────────────────
-function teclado(canais) {
-  return {
-    inline_keyboard: [
-      [
-        { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
-        { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
-        { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
-      ],
-      [
-        { text: '🚀 Publicar agora', callback_data: 'publicar' },
-        { text: '🗑️ Cancelar',       callback_data: 'cancelar' },
-      ],
+function teclado(canais, previewUrl) {
+  const linhas = [
+    [
+      { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
+      { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
+      { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
     ],
-  };
+  ];
+  // Botão de prévia web (link) — só aparece se houver URL gerada
+  if (previewUrl) {
+    linhas.push([{ text: '👁️ Ver prévia completa', url: previewUrl }]);
+  }
+  linhas.push([
+    { text: '🚀 Publicar agora', callback_data: 'publicar' },
+    { text: '🗑️ Cancelar',       callback_data: 'cancelar' },
+  ]);
+  return { inline_keyboard: linhas };
 }
 
 function textoPrevia(materia, canais) {
@@ -525,11 +529,29 @@ async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
     sessao.materia = materia;
     sessao.stage   = 'confirming';
 
+    // Cria prévia web efêmera e guarda o link (botão "Ver prévia completa").
+    // sessao.previewUrl é reusado nos toggles para o botão não sumir.
+    sessao.previewUrl = null;
+    try {
+      const base = (settings.base_url || '').replace(/\/$/, '');
+      if (base) {
+        const token = previewStore.criar({
+          chapeu:    materia.chapeu,
+          titulo:    materia.titulo,
+          resumo:    materia.resumo,
+          corpo:     materia.corpo,
+          imagemUrl: sessao.imagemUrl,
+          candidato: cliente.nome,
+        });
+        sessao.previewUrl = `${base}/preview/${token}`;
+      }
+    } catch {}
+
     await bot.deleteMessage(chatId, gerando.message_id).catch(() => {});
 
     const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
       parse_mode:   'HTML',
-      reply_markup: teclado(sessao.canais),
+      reply_markup: teclado(sessao.canais, sessao.previewUrl),
     });
     sessao.msgId = preview.message_id;
   } catch (err) {
@@ -676,7 +698,7 @@ async function processarCallback(bot, cbQuery) {
     sessao.canais[canal] = !sessao.canais[canal];
     // Usa teclado e texto correto para o tipo de conteúdo
     const novoTexto    = sessao.videoUrl ? textoPreviewVideo(sessao) : textoPrevia(sessao.materia, sessao.canais);
-    const novoTeclado  = sessao.videoUrl ? tecladoVideo(sessao.canais) : teclado(sessao.canais);
+    const novoTeclado  = sessao.videoUrl ? tecladoVideo(sessao.canais) : teclado(sessao.canais, sessao.previewUrl);
     await bot.editMessageText(novoTexto, {
       chat_id:      chatId,
       message_id:   cbQuery.message.message_id,

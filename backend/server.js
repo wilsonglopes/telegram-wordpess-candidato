@@ -11,6 +11,7 @@ const whatsappRoutes = require('./routes/whatsapp');
 const meRoutes         = require('./routes/me');
 const dashboardRoutes  = require('./routes/dashboard');
 const financeiroRoutes = require('./routes/financeiro');
+const previewRoutes    = require('./routes/preview');
 const { iniciarBots, reiniciarBot, verificarRelatorioSemanal } = require('./bot');
 const { statusConexao } = require('./connectors/evolution');
 
@@ -31,6 +32,9 @@ app.use('/api/whatsapp',  whatsappRoutes);
 app.use('/api/me',          meRoutes);
 app.use('/api/dashboard',   dashboardRoutes);
 app.use('/api/financeiro',  financeiroRoutes);
+
+// Página pública de prévia da matéria (link efêmero do bot, sem login)
+app.use('/preview', previewRoutes);
 
 // Rota de saúde
 app.get('/api/health', (_, res) => res.json({ ok: true, ts: new Date() }));
