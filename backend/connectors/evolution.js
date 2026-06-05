@@ -48,11 +48,14 @@ async function statusConexao(instancia) {
   }
 }
 
-// Lista grupos do WhatsApp conectado
+// Lista grupos do WhatsApp conectado.
+// fetchAllGroups da Evolution sincroniza metadados de TODOS os grupos via Baileys —
+// medido em ~29s para ~100 grupos (independente de cache). Timeout generoso de 45s
+// para não estourar. getParticipants=false já reduz bastante o trabalho.
 async function listarGrupos(instancia) {
   const r = await axios.get(`${BASE()}/group/fetchAllGroups/${instancia}?getParticipants=false`, {
     headers: headers(),
-    timeout: 15000,
+    timeout: 45000,
   });
   return (r.data || []).map(g => ({ jid: g.id, nome: g.subject }));
 }

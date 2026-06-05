@@ -1417,6 +1417,7 @@ async function sincronizarGrupos() {
   const el  = document.getElementById('gruposDisponiveis');
   btn.innerHTML = '<span class="spin">⟳</span> Buscando…';
   btn.disabled  = true;
+  el.innerHTML  = '<div style="color:var(--c-text-faint);font-size:var(--text-sm)"><span class="spin">⟳</span> Sincronizando grupos do WhatsApp… pode levar até 30s se houver muitos grupos.</div>';
   try {
     gruposDisp = await api(`/whatsapp/grupos/${clienteAtual}`);
     if (!gruposDisp.length) {
