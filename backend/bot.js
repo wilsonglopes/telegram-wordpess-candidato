@@ -11,6 +11,7 @@ const { publicarWP }    = require('./connectors/wordpress');
 const { enviarGrupos, enviarVideoGrupos } = require('./connectors/evolution');
 const { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram } = require('./connectors/social');
 const { gerarImagemTemplate } = require('./utils/imageTemplate');
+const { gerarCardComTemplate } = require('./utils/templateCompositor');
 const previewStore = require('./utils/previewStore');
 const settings = require('./settings.json');
 
@@ -760,13 +761,27 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
   const querCard = cliente.gerar_card !== false;
   if (querCard && imagemPostada && (canais.wa || canais.fb || canais.ig)) {
     try {
-      const buffer = await gerarImagemTemplate({
-        imagemUrl:  imagemPostada,
-        chapeu:     materia.chapeu,
-        titulo:     materia.titulo,
-        logoUrl:    cliente.logo_url || null,
-        brandColor: cliente.brand_color || '#f97316',
-      });
+      let buffer;
+      if (cliente.template_config) {
+        // Card com moldura própria do candidato (config JSON de zonas)
+        const cfg = typeof cliente.template_config === 'string'
+          ? JSON.parse(cliente.template_config)
+          : cliente.template_config;
+        buffer = await gerarCardComTemplate({
+          config:    cfg,
+          imagemUrl: imagemPostada,
+          titulo:    materia.titulo,
+        });
+      } else {
+        // Card padrão (gradiente + chapéu + título + logo)
+        buffer = await gerarImagemTemplate({
+          imagemUrl:  imagemPostada,
+          chapeu:     materia.chapeu,
+          titulo:     materia.titulo,
+          logoUrl:    cliente.logo_url || null,
+          brandColor: cliente.brand_color || '#f97316',
+        });
+      }
       const filename = `${cliente.slug}-${Date.now()}.jpg`;
       fs.writeFileSync(path.join(CARDS_DIR, filename), buffer);
       const base = (settings.base_url || '').replace(/\/$/, '');

@@ -25,6 +25,8 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/cards',  express.static(path.join(__dirname, 'cards')));
 // Vídeos recebidos do Telegram e distribuídos para FB/WhatsApp
 app.use('/videos', express.static(path.join(__dirname, 'videos')));
+// Molduras dos templates por candidato (assets versionados)
+app.use('/templates', express.static(path.join(__dirname, 'templates')));
 
 app.use('/api/auth',      authRoutes);
 app.use('/api/clientes',  clientesRoutes);

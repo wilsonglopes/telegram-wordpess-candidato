@@ -74,6 +74,8 @@ async function migrate() {
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS logo_url          TEXT`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS brand_color       TEXT NOT NULL DEFAULT '#f97316'`);
   await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS gerar_card        BOOLEAN NOT NULL DEFAULT true`);
+  // Template visual por candidato: moldura PNG + zonas de foto/texto (JSON). NULL = usa card padrão.
+  await query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS template_config   JSONB`);
 
   // Torna wp_usuario e wp_senha nullable (plugin não precisa deles)
   await query(`ALTER TABLE clientes ALTER COLUMN wp_usuario DROP NOT NULL`);
