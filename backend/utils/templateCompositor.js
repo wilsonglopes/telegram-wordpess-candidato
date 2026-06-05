@@ -61,16 +61,31 @@ async function gerarCardComTemplate({ config, imagemUrl, titulo }) {
     .png()
     .toBuffer();
 
-  // 3. Texto (título) na zona, com alinhamento configurável
-  const fonte    = texto.fonte    || 60;
-  const maxChars = texto.maxChars || 24;
-  const align    = texto.align    || 'left';
+  // 3. Texto (título) na zona — AUTO-AJUSTE: escolhe a MAIOR fonte em que o título inteiro
+  //    cabe na caixa (largura E altura). A quebra usa a largura real → o texto enche a caixa
+  //    até perto da margem direita, em vez de cortar cedo. Títulos longos reduzem a fonte
+  //    o necessário (nunca vaza); títulos curtos ficam grandes (não sobra espaço).
+  const align    = texto.align || 'left';
   const anchor   = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
   const tx = align === 'center' ? texto.x + texto.w / 2
            : align === 'right'  ? texto.x + texto.w
            : texto.x;
-  const linhas = quebrarTexto(titulo, maxChars);
-  const lh     = fonte * 1.18;
+  const fonteMax    = texto.fonte      || 62;     // teto (títulos curtos)
+  const fonteMin    = texto.fonteMin   || 34;     // piso (títulos muito longos)
+  const usoLargura  = texto.usoLargura || 0.96;   // fração da largura usada (perto da margem direita)
+  const fatorChar   = texto.fatorChar  || 0.58;   // largura média do caractere ≈ fonte × fator (Arial Black)
+  const larguraUtil = (texto.w || 600) * usoLargura;
+  const alturaMax   = texto.h || 100000;
+
+  let fonte = fonteMin, linhas = [], lh = fonteMin * 1.18;
+  for (let f = fonteMax; f >= fonteMin; f -= 2) {
+    const maxChars = Math.max(6, Math.floor(larguraUtil / (f * fatorChar)));
+    const ls    = quebrarTexto(titulo, maxChars);
+    const lineH = f * 1.18;
+    if (ls.length * lineH <= alturaMax || f === fonteMin) {
+      fonte = f; linhas = ls; lh = lineH; break;
+    }
+  }
   const blocoH = linhas.length * lh;
   const y0     = (texto.y || 0) + ((texto.h || 0) - blocoH) / 2 + fonte * 0.8;
   const tspans = linhas.map((l, i) =>
