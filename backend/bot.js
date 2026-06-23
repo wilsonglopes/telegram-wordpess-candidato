@@ -110,7 +110,7 @@ function migrarSessaoTemp(userId, clienteId) {
 }
 
 // ── TECLADO INLINE ─────────────────────────────────────────────────────────────
-function teclado(canais, previewUrl) {
+function teclado(canais, previewUrl, temFoto) {
   const linhas = [
     [
       { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
@@ -118,9 +118,10 @@ function teclado(canais, previewUrl) {
       { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
     ],
   ];
-  // Linha de ações: prévia web (link) + corrigir matéria
+  // Linha de ações: prévia web (link) + ver card (se há foto) + corrigir matéria
   const acoes = [];
   if (previewUrl) acoes.push({ text: '👁️ Ver prévia', url: previewUrl });
+  if (temFoto)    acoes.push({ text: '🖼️ Ver card', callback_data: 'vercard' });
   acoes.push({ text: '✏️ Corrigir', callback_data: 'corrigir' });
   linhas.push(acoes);
   linhas.push([
@@ -247,7 +248,7 @@ async function aplicarEdicaoCampo(bot, cliente, chatId, userId, sessao, texto) {
   await bot.sendMessage(chatId, `✅ ${nomeCampo(campo)} atualizado.`);
   const preview = await bot.sendMessage(chatId, textoPrevia(sessao.materia, sessao.canais), {
     parse_mode:   'HTML',
-    reply_markup: teclado(sessao.canais, sessao.previewUrl),
+    reply_markup: teclado(sessao.canais, sessao.previewUrl, !!sessao.imagemUrl),
   });
   sessao.msgId = preview.message_id;
 }
@@ -685,7 +686,7 @@ async function gerarMateriaDaSessao(bot, cliente, chatId, userId, sessao) {
 
     const preview = await bot.sendMessage(chatId, textoPrevia(materia, sessao.canais), {
       parse_mode:   'HTML',
-      reply_markup: teclado(sessao.canais, sessao.previewUrl),
+      reply_markup: teclado(sessao.canais, sessao.previewUrl, !!sessao.imagemUrl),
     });
     sessao.msgId = preview.message_id;
   } catch (err) {
@@ -814,6 +815,27 @@ async function processarCallback(bot, cbQuery) {
     return;
   }
 
+  // Prévia do card (imagem) antes de publicar — gera sob demanda e envia a foto.
+  // Usa a MESMA função da publicação, então o que o assessor vê é o que vai ao ar.
+  if (data === 'vercard') {
+    await bot.answerCallbackQuery(cbQuery.id, { text: '🖼️ Gerando card…' });
+    if (!sessao.materia || !sessao.imagemUrl) {
+      return bot.sendMessage(chatId, '⚠️ Não há foto no rascunho para gerar o card.');
+    }
+    const aviso = await bot.sendMessage(chatId, '⏳ Gerando prévia do card…');
+    const buffer = await montarBufferCard(cliente, sessao.materia, sessao.imagemUrl);
+    await bot.deleteMessage(chatId, aviso.message_id).catch(() => {});
+    if (!buffer) {
+      return bot.sendMessage(chatId, '⚠️ Não foi possível gerar o card. Na publicação será usada a foto original.');
+    }
+    return bot.sendPhoto(chatId, buffer,
+      { caption: '🖼️ Prévia do card — é assim que será postado nas redes.' },
+      { filename: 'card.jpg', contentType: 'image/jpeg' }
+    ).catch(err => {
+      bot.sendMessage(chatId, `⚠️ Erro ao enviar o card: ${esc(err.message)}`).catch(() => {});
+    });
+  }
+
   await bot.answerCallbackQuery(cbQuery.id);
 
   if (data === 'cancelar') {
@@ -841,7 +863,7 @@ async function processarCallback(bot, cbQuery) {
     sessao.editando = null;
     await bot.editMessageText(textoPrevia(sessao.materia, sessao.canais), {
       chat_id: chatId, message_id: cbQuery.message.message_id, parse_mode: 'HTML',
-      reply_markup: teclado(sessao.canais, sessao.previewUrl),
+      reply_markup: teclado(sessao.canais, sessao.previewUrl, !!sessao.imagemUrl),
     });
     return;
   }
@@ -910,7 +932,7 @@ async function processarCallback(bot, cbQuery) {
     sessao.canais[canal] = !sessao.canais[canal];
     // Usa teclado e texto correto para o tipo de conteúdo
     const novoTexto    = sessao.videoUrl ? textoPreviewVideo(sessao) : textoPrevia(sessao.materia, sessao.canais);
-    const novoTeclado  = sessao.videoUrl ? tecladoVideo(sessao.canais) : teclado(sessao.canais, sessao.previewUrl);
+    const novoTeclado  = sessao.videoUrl ? tecladoVideo(sessao.canais) : teclado(sessao.canais, sessao.previewUrl, !!sessao.imagemUrl);
     await bot.editMessageText(novoTexto, {
       chat_id:      chatId,
       message_id:   cbQuery.message.message_id,
@@ -918,6 +940,38 @@ async function processarCallback(bot, cbQuery) {
       reply_markup: novoTeclado,
     });
     return;
+  }
+}
+
+// Gera o buffer do card social (1080x1080) a partir da matéria + foto.
+// Reutilizado na prévia (botão "🖼️ Ver card") e na publicação, para o card
+// exibido ser EXATAMENTE o mesmo que vai ao ar. Retorna null se não há foto
+// ou se a geração falha (a publicação cai para a foto original nesse caso).
+async function montarBufferCard(cliente, materia, imagemUrl) {
+  if (!imagemUrl) return null;
+  try {
+    if (cliente.template_config) {
+      // Card com moldura própria do candidato (config JSON de zonas)
+      const cfg = typeof cliente.template_config === 'string'
+        ? JSON.parse(cliente.template_config)
+        : cliente.template_config;
+      return await gerarCardComTemplate({
+        config:    cfg,
+        imagemUrl,
+        titulo:    materia.titulo,
+      });
+    }
+    // Card padrão (gradiente + chapéu + título + logo)
+    return await gerarImagemTemplate({
+      imagemUrl,
+      chapeu:     materia.chapeu,
+      titulo:     materia.titulo,
+      logoUrl:    cliente.logo_url || null,
+      brandColor: cliente.brand_color || '#f97316',
+    });
+  } catch (err) {
+    console.warn(`[card] Falha ao gerar template: ${err.message} — usando foto original`);
+    return null;
   }
 }
 
@@ -971,34 +1025,12 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
   let imagemSocial = imagemPostada;
   const querCard = cliente.gerar_card !== false;
   if (querCard && imagemPostada && (canais.wa || canais.fb || canais.ig)) {
-    try {
-      let buffer;
-      if (cliente.template_config) {
-        // Card com moldura própria do candidato (config JSON de zonas)
-        const cfg = typeof cliente.template_config === 'string'
-          ? JSON.parse(cliente.template_config)
-          : cliente.template_config;
-        buffer = await gerarCardComTemplate({
-          config:    cfg,
-          imagemUrl: imagemPostada,
-          titulo:    materia.titulo,
-        });
-      } else {
-        // Card padrão (gradiente + chapéu + título + logo)
-        buffer = await gerarImagemTemplate({
-          imagemUrl:  imagemPostada,
-          chapeu:     materia.chapeu,
-          titulo:     materia.titulo,
-          logoUrl:    cliente.logo_url || null,
-          brandColor: cliente.brand_color || '#f97316',
-        });
-      }
+    const buffer = await montarBufferCard(cliente, materia, imagemPostada);
+    if (buffer) {
       const filename = `${cliente.slug}-${Date.now()}.jpg`;
       fs.writeFileSync(path.join(CARDS_DIR, filename), buffer);
       const base = (settings.base_url || '').replace(/\/$/, '');
       imagemSocial = `${base}/cards/${filename}`;
-    } catch (err) {
-      console.warn(`[card] Falha ao gerar template: ${err.message} — usando foto original`);
     }
   }
 
