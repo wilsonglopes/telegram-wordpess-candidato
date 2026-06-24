@@ -97,6 +97,85 @@ async function postarInstagram({ ig_user_id, fb_access_token, chapeu, titulo, re
   }
 }
 
+// ── FACEBOOK STORY (Status) ─────────────────────────────────────────────────
+// Fluxo Page Photo Stories: 1) sobe a foto como NÃO publicada → photo_id
+//                           2) POST /{page-id}/photo_stories com o photo_id
+// Story não tem legenda nem link clicável via API — só a imagem (o card).
+async function postarStoryFacebook({ fb_page_id, fb_access_token, imagemUrl }) {
+  if (!fb_page_id || !fb_access_token || !imagemUrl) return null;
+  if (!/^https:\/\//.test(imagemUrl)) {
+    throw new Error('Facebook Story exige imagem em URL HTTPS pública.');
+  }
+  try {
+    // Etapa 1: sobe a foto como não publicada (published=false) → photo_id
+    const up = await axios.post(`${GRAPH}/${fb_page_id}/photos`, {
+      url:          imagemUrl,
+      published:    false,
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+    const photoId = up.data?.id;
+    if (!photoId) throw new Error('Facebook não retornou photo_id para o story.');
+
+    // Etapa 2: cria o story a partir da foto
+    const r = await axios.post(`${GRAPH}/${fb_page_id}/photo_stories`, {
+      photo_id:     photoId,
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+    console.log(`[social] Facebook Story postado: ${r.data?.post_id || r.data?.id}`);
+    return r.data;
+  } catch (err) {
+    const msg = traduzErroMeta(err);
+    console.error('[social] Facebook Story erro:', msg);
+    throw new Error(msg);
+  }
+}
+
+// ── INSTAGRAM STORY (Status) ─────────────────────────────────────────────────
+// Container media_type: 'STORIES' → poll status_code até FINISHED → media_publish.
+// Story não tem caption nem link clicável via API — só a imagem (o card).
+async function postarStoryInstagram({ ig_user_id, fb_access_token, imagemUrl }) {
+  if (!ig_user_id || !fb_access_token || !imagemUrl) return null;
+  if (!/^https:\/\//.test(imagemUrl)) {
+    throw new Error('Instagram Story exige imagem em URL HTTPS pública.');
+  }
+  try {
+    // Passo 1: container de mídia do tipo STORIES
+    const container = await axios.post(`${GRAPH}/${ig_user_id}/media`, {
+      image_url:    imagemUrl,
+      media_type:   'STORIES',
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+    const creationId = container.data?.id;
+    if (!creationId) throw new Error('Instagram não retornou creation_id (story)');
+
+    // Passo 2: aguarda o container ficar FINISHED (poll 3s, máx ~30s)
+    let statusCode = '';
+    for (let i = 0; i < 10 && statusCode !== 'FINISHED'; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const check = await axios.get(`${GRAPH}/${creationId}`, {
+        params: { fields: 'status_code', access_token: fb_access_token },
+        timeout: 10000,
+      });
+      statusCode = check.data?.status_code || '';
+      if (statusCode === 'ERROR' || statusCode === 'EXPIRED') {
+        throw new Error(`Instagram story container inválido: ${statusCode}`);
+      }
+    }
+
+    // Passo 3: publicar (segue mesmo que não tenha chegado a FINISHED, como no XIXO)
+    const pub = await axios.post(`${GRAPH}/${ig_user_id}/media_publish`, {
+      creation_id:  creationId,
+      access_token: fb_access_token,
+    }, { timeout: 30000 });
+    console.log(`[social] Instagram Story postado: ${pub.data?.id}`);
+    return pub.data;
+  } catch (err) {
+    const msg = traduzErroMeta(err);
+    console.error('[social] Instagram Story erro:', msg);
+    throw new Error(msg);
+  }
+}
+
 // ── FACEBOOK VÍDEO ────────────────────────────────────────────────────────────
 
 async function publicarVideoFacebook({ fb_page_id, fb_access_token, videoUrl, legenda }) {
@@ -197,4 +276,4 @@ async function distribuirRedes(cliente, { chapeu, titulo, resumo, postUrl, image
   return resultados;
 }
 
-module.exports = { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram };
+module.exports = { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram, postarStoryFacebook, postarStoryInstagram };

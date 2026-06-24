@@ -9,7 +9,7 @@ const { query }         = require('./db');
 const { gerarMateria, gerarLegendaVideo: gerarLegendaVideoAI } = require('./connectors/ai');
 const { publicarWP }    = require('./connectors/wordpress');
 const { enviarGrupos, enviarVideoGrupos } = require('./connectors/evolution');
-const { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram } = require('./connectors/social');
+const { distribuirRedes, publicarVideoFacebook, publicarVideoInstagram, postarStoryFacebook, postarStoryInstagram } = require('./connectors/social');
 const { gerarImagemTemplate } = require('./utils/imageTemplate');
 const { gerarCardComTemplate } = require('./utils/templateCompositor');
 const previewStore = require('./utils/previewStore');
@@ -59,7 +59,7 @@ function getSessao(clienteId, userId) {
       imagemUrl: null,    // última foto enviada
       stage:     'collecting', // 'collecting' | 'confirming'
       materia:   null,    // { chapeu, titulo, resumo, corpo }
-      canais:    { wa: true, fb: true, ig: true },
+      canais:    { wa: true, fb: true, ig: true, fbStory: false, igStory: false },
       msgId:     null,    // id da mensagem de prévia (para editar)
     });
   }
@@ -82,7 +82,7 @@ function getSessaoTmp(userId) {
     sessoes.set(k, {
       textos: [], imagemUrl: null, videoUrl: null, videoLocal: null,
       stage: 'collecting', materia: null,
-      canais: { wa: true, fb: true, ig: true }, msgId: null,
+      canais: { wa: true, fb: true, ig: true, fbStory: false, igStory: false }, msgId: null,
       pendingAction: null, // ação a executar automaticamente após seleção de candidato
     });
   }
@@ -116,6 +116,11 @@ function teclado(canais, previewUrl, temFoto) {
       { text: `${canais.wa ? '✅' : '⬜'} WhatsApp`, callback_data: 'toggle_wa' },
       { text: `${canais.fb ? '✅' : '⬜'} Facebook`,  callback_data: 'toggle_fb' },
       { text: `${canais.ig ? '✅' : '⬜'} Instagram`, callback_data: 'toggle_ig' },
+    ],
+    // Status (Stories) — FB e IG independentes, desligados por padrão
+    [
+      { text: `${canais.fbStory ? '✅' : '⬜'} Status FB`, callback_data: 'toggle_fbStory' },
+      { text: `${canais.igStory ? '✅' : '⬜'} Status IG`, callback_data: 'toggle_igStory' },
     ],
   ];
   // Linha de ações: prévia web (link) + ver card (se há foto) + corrigir matéria
@@ -262,7 +267,9 @@ function textoPrevia(materia, canais) {
     `<b>Publicar em:</b>\n` +
     `${canais.wa ? '✅' : '⬜'} WhatsApp grupos\n` +
     `${canais.fb ? '✅' : '⬜'} Facebook\n` +
-    `${canais.ig ? '✅' : '⬜'} Instagram\n\n` +
+    `${canais.ig ? '✅' : '⬜'} Instagram\n` +
+    `${canais.fbStory ? '✅' : '⬜'} Status Facebook\n` +
+    `${canais.igStory ? '✅' : '⬜'} Status Instagram\n\n` +
     `<i>Ative ou desative os canais e clique em 🚀 Publicar</i>`
   );
 }
@@ -1024,7 +1031,7 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
   // WordPress fica com a foto limpa; redes sociais recebem o card brandado.
   let imagemSocial = imagemPostada;
   const querCard = cliente.gerar_card !== false;
-  if (querCard && imagemPostada && (canais.wa || canais.fb || canais.ig)) {
+  if (querCard && imagemPostada && (canais.wa || canais.fb || canais.ig || canais.fbStory || canais.igStory)) {
     const buffer = await montarBufferCard(cliente, materia, imagemPostada);
     if (buffer) {
       const filename = `${cliente.slug}-${Date.now()}.jpg`;
@@ -1069,6 +1076,32 @@ async function publicarEmTodosOsCanais(bot, clienteCache, chatId, userId, sessao
     if (social.instagram)      publicados.push('📸 Instagram');
     if (social.facebook_erro)  erros.push(`Facebook: ${social.facebook_erro}`);
     if (social.instagram_erro) erros.push(`Instagram: ${social.instagram_erro}`);
+  }
+
+  // 3.5. Status (Stories) — FB e IG independentes, usam o card (mesma imagem do feed)
+  if ((canais.fbStory || canais.igStory) && imagemSocial) {
+    if (canais.fbStory) {
+      try {
+        const r = await postarStoryFacebook({
+          fb_page_id:      cliente.fb_page_id,
+          fb_access_token: cliente.fb_access_token,
+          imagemUrl:       imagemSocial,
+        });
+        if (r) publicados.push('📘 Status FB');
+        else   erros.push('Status FB: Facebook não configurado para este candidato.');
+      } catch (err) { erros.push(`Status FB: ${err.message}`); }
+    }
+    if (canais.igStory) {
+      try {
+        const r = await postarStoryInstagram({
+          ig_user_id:      cliente.ig_user_id,
+          fb_access_token: cliente.fb_access_token,
+          imagemUrl:       imagemSocial,
+        });
+        if (r) publicados.push('📸 Status IG');
+        else   erros.push('Status IG: Instagram não configurado para este candidato.');
+      } catch (err) { erros.push(`Status IG: ${err.message}`); }
+    }
   }
 
   // 4. Registra
